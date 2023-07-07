@@ -104,14 +104,6 @@ Resources:
                       "Parameters": {
                         "JobName": "sg-analysis-flow-logs-parser"
                       },
-                      "Next": "Glue EmailAnalysisReportOn1st"
-                    },
-                    "Glue EmailAnalysisReportOn1st": {
-                      "Type": "Task",
-                      "Resource": "arn:aws:states:::glue:startJobRun.sync",
-                      "Parameters": {
-                        "JobName": "sg-analysis-email-usage-report"
-                      },
                       "End": true
                     }
                   }
@@ -201,7 +193,7 @@ Resources:
                                       - !Ref AWS::Partition
                                       - ':s3:::'
                                       - !Ref librariesLocation
-                                      - 'boto3-1.22.4-py3-none-any.whl'
+                                      - 'boto3-1.27.1-py3-none-any.whl'
                 --job-language: "python"
             MaxRetries: 1
             Timeout: 2880
@@ -237,29 +229,6 @@ Resources:
                                       - !Ref librariesLocation
                                       - 'awswrangler-2.14.0-py3-none-any.whl'
                 --job-language: "python"
-            MaxRetries: 1
-            Timeout: 2880
-            GlueVersion: "1.0"
-            MaxCapacity: 1
-
-    GlueJob4:
-        Type: "AWS::Glue::Job"
-        Properties:
-            Name: "sg-analysis-email-usage-report"
-            Description: "Job to parse flow logs and calculate usage"
-            Role: !GetAtt IAMRole2.Arn
-            ExecutionProperty: 
-                MaxConcurrentRuns: 1
-            Command: 
-                Name: "pythonshell"
-                ScriptLocation: !Join
-                                    - ''
-                                    - - 'arn:'
-                                      - !Ref "AWS::Partition"
-                                      - ':s3:::'
-                                      - !Ref scriptsLocation
-                                      - 'sg_usage_analysis.py'
-                PythonVersion: "3"
             MaxRetries: 1
             Timeout: 2880
             GlueVersion: "1.0"
