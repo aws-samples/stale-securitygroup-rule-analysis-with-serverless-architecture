@@ -144,7 +144,7 @@ Resources:
                                     - ''
                                     - - 's3://'
                                       - !Ref scriptsLocation
-                                      - 'run_athena_query.py'
+                                      - 'athena_query.py'
                 PythonVersion: "3.9"
             DefaultArguments: 
                 --TempDir: !Join
