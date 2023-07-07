@@ -142,12 +142,10 @@ Resources:
                 Name: "pythonshell"
                 ScriptLocation: !Join
                                     - ''
-                                    - - 'arn:'
-                                      - !Ref AWS::Partition
-                                      - ':s3:::'
+                                    - - 's3://'
                                       - !Ref scriptsLocation
                                       - 'run_athena_query.py'
-                PythonVersion: "3"
+                PythonVersion: "3.9"
             DefaultArguments: 
                 --TempDir: !Join
                                 - ''
@@ -178,20 +176,16 @@ Resources:
                 Name: "pythonshell"
                 ScriptLocation: !Join
                                     - ''
-                                    - - 'arn:'
-                                      - !Ref AWS::Partition
-                                      - ':s3:::'
+                                    - - 's3://'
                                       - !Ref scriptsLocation
-                                      - 'get_sg_rules_data.py'
-                PythonVersion: "3"
+                                      - 'get_security_groups_data.py'
+                PythonVersion: "3.9"
             DefaultArguments: 
                 --class: "GlueApp"
                 --enable-job-insights: "false"
                 --extra-py-files: !Join
                                     - ''
-                                    - - 'arn:'
-                                      - !Ref AWS::Partition
-                                      - ':s3:::'
+                                    - - 's3://'
                                       - !Ref librariesLocation
                                       - 'boto3-1.27.1-py3-none-any.whl'
                 --job-language: "python"
@@ -212,20 +206,16 @@ Resources:
                 Name: "pythonshell"
                 ScriptLocation: !Join
                                     - ''
-                                    - - 'arn:'
-                                      - !Ref AWS::Partition
-                                      - ':s3:::'
+                                    - - 's3://'
                                       - !Ref scriptsLocation
                                       - 'flow_logs_parser.py'
-                PythonVersion: "3"
+                PythonVersion: "3.9"
             DefaultArguments: 
                 --class: "GlueApp"
                 --enable-job-insights: "false"
                 --extra-py-files: !Join
                                     - ''
-                                    - - 'arn:'
-                                      - !Ref AWS::Partition
-                                      - ':s3:::'
+                                    - - 's3://'
                                       - !Ref librariesLocation
                                       - 'awswrangler-2.14.0-py3-none-any.whl'
                 --job-language: "python"
@@ -246,12 +236,10 @@ Resources:
                 Name: "pythonshell"
                 ScriptLocation: !Join
                                 - ''
-                                - - 'arn:'
-                                  - !Ref "AWS::Partition"
-                                  - ':s3:::'
+                                - - 's3://'
                                   - !Ref scriptsLocation
                                   - 'create_dynamodb_tables.py'
-                PythonVersion: "3"
+                PythonVersion: "3.9"
             MaxRetries: 1
             Timeout: 2880
             GlueVersion: "1.0"
