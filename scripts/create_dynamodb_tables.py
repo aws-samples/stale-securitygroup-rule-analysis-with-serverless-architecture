@@ -3,7 +3,7 @@ import pandas as pd
 import datetime
 import uuid
 
-region = 'us-west-2'
+region = 'eu-west-2'
 ec2 = boto3.client("ec2", region)
 dynamodb = boto3.client('dynamodb', region)
 autoscaling_client = boto3.client('application-autoscaling', region)

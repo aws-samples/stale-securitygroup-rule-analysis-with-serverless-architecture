@@ -6,7 +6,7 @@ import time
 from datetime import datetime, timedelta
 # Follow this article to create Athena table (to be used in query) that can analyze Amazon VPC Flow Logs - https://aws.amazon.com/premiumsupport/knowledge-center/athena-analyze-vpc-flow-logs/
 params = {
-    'region': 'us-west-2',
+    'region': 'eu-west-2',
     'database': 'default',
     'bucket': 'INSERT_ATHENA_QUERY_RESULTS_BUCKET_NAME',
     'path': 'INSERT_ATHENA_QUERY_RESULTS_OUTPUT_PATH- Ex: vpcflowlogs/athena/output',

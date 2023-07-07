@@ -8,11 +8,11 @@ import uuid
 from datetime import datetime, timedelta
 from boto3.dynamodb.types import TypeDeserializer, TypeSerializer
 
-s3 = boto3.resource('s3',"us-west-2")
-dynamodb = boto3.client('dynamodb',"us-west-2")
-ec2 = boto3.client('ec2',"us-west-2")
+s3 = boto3.resource('s3',"eu-west-2")
+dynamodb = boto3.client('dynamodb',"eu-west-2")
+ec2 = boto3.client('ec2',"eu-west-2")
 
-regions = ['us-west-2']
+regions = ['eu-west-2']
 
 flow_logs_athena_results_bucket="INSERT_ATHENA_QUERY_RESULTS_S3_BUCKET_NAME_HERE"
 sg_rules_tbl_name="sg-analysis-rules-data"
