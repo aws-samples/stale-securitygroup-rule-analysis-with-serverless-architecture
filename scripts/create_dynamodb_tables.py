@@ -81,15 +81,15 @@ def create_sg_rules_count_table():
                     'ProjectionType': 'ALL'
                 },
                 'ProvisionedThroughput': {
-                    'ReadCapacityUnits': 50,
-                    'WriteCapacityUnits': 50
+                    'ReadCapacityUnits': 5,
+                    'WriteCapacityUnits': 5
                 }
             },
         ],
 
         ProvisionedThroughput={
-            'ReadCapacityUnits': 50,
-            'WriteCapacityUnits': 50,
+            'ReadCapacityUnits': 5,
+            'WriteCapacityUnits': 5,
         },
         TableName=ports_usage_tbl_name,
     )
@@ -100,14 +100,14 @@ def create_sg_rules_count_table():
     autoscaling_client.register_scalable_target(ServiceNamespace='dynamodb',
                                                 ResourceId="table/{}".format(ports_usage_tbl_name),
                                                 ScalableDimension='dynamodb:table:ReadCapacityUnits',
-                                                MinCapacity=50,
-                                                MaxCapacity=2000)
+                                                MinCapacity=5,
+                                                MaxCapacity=10)
     #Write capacity
     autoscaling_client.register_scalable_target(ServiceNamespace='dynamodb',
                                                 ResourceId="table/{}".format(ports_usage_tbl_name),
                                                 ScalableDimension='dynamodb:table:WriteCapacityUnits',
-                                                MinCapacity=50,
-                                                MaxCapacity=2000)
+                                                MinCapacity=5,
+                                                MaxCapacity=10)
 
     percent_of_use_to_aim_for = 50.0
     scale_out_cooldown_in_seconds = 60
