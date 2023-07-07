@@ -149,9 +149,7 @@ Resources:
             DefaultArguments: 
                 --TempDir: !Join
                                 - ''
-                                - - 'arn:'
-                                  - !Ref AWS::Partition
-                                  - ':s3:::'
+                                - - 's3://'
                                   - !Ref scriptsLocation
                                   - 'temporary/'
                 --class: "GlueApp"
