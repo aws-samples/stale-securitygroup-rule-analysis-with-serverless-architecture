@@ -5,18 +5,20 @@ import re
 import time
 import json
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from boto3.dynamodb.types import TypeDeserializer, TypeSerializer
 
-s3 = boto3.resource('s3',"us-west-2")
-dynamodb = boto3.client('dynamodb',"us-west-2")
-ec2 = boto3.client('ec2',"us-west-2")
+s3 = boto3.resource('s3',"eu-west-2")
+dynamodb = boto3.client('dynamodb',"eu-west-2")
+ec2 = boto3.client('ec2',"eu-west-2")
 
-regions = ['us-west-2']
+regions = ['eu-west-2']
 
 flow_logs_athena_results_bucket="INSERT_ATHENA_QUERY_RESULTS_S3_BUCKET_NAME_HERE"
 sg_rules_tbl_name="sg-analysis-rules-data"
 dynamodb_tbl_name="sg-analysis-rules-usage"
+athena_s3_prefix = "athena_results_prefix"
+date_yst = (date.today() - timedelta(3))
 
 my_bucket = s3.Bucket(flow_logs_athena_results_bucket)
 
@@ -110,11 +112,11 @@ def insert_usage_data(sg_rule_id, sg_id, flow_dir, protocol, dstport_used_times)
         print("There was an error while trying to perform DynamoDB insert operation on Usage table: "+str(e))
 
 def main():
-    for object_summary in my_bucket.objects.filter(Prefix='vpcflowlogs/athena/output/'+datetime.strftime(datetime.now() - timedelta(1), '%Y-%m-%d')+'/'):
-         if object_summary.key.endswith('.csv'): 
+    for object_summary in my_bucket.objects.filter(Prefix=f'{athena_s3_prefix}/{date_yst.isoformat().replace("-","/")}/'):
+        if object_summary.key.endswith('.csv'): 
             # print(object_summary.key)
-            file_name = "s3://"+flow_logs_athena_results_bucket+"/"+object_summary.key
-            s3_folder_path = "s3://"+flow_logs_athena_results_bucket+"/vpcflowlogs/athena/output/"+datetime.strftime(datetime.now() - timedelta(1), '%Y-%m-%d')+"/"
+            file_name = f"s3://{flow_logs_athena_results_bucket}/{object_summary.key}"
+            s3_folder_path = f's3://{flow_logs_athena_results_bucket}/{athena_s3_prefix}/{date_yst.isoformat().replace("-","/")}/'
             start = time.time()
             print("Writing rules data to DynamoDB table- started at: "+str(datetime.now()))
             dfs = wr.s3.read_csv(path=s3_folder_path, chunksize=1000, encoding = 'ISO-8859-1')
@@ -142,9 +144,9 @@ def main():
                         # insert_into_dynamodb(sg_id, row['dstport'],row['port_used_times'],row['protocol'],row['flow_direction'],row['srcaddr'],row['dstaddr'])
 
     
-    print("Writing rules data to DynamoDB table- completed at: "+str(datetime.now()))
-    end = time.time()
-    print("Total time taken in minutes: "+str((end - start)/60))        
+            print("Writing rules data to DynamoDB table- completed at: "+str(datetime.now()))
+            end = time.time()
+            print("Total time taken in minutes: "+str((end - start)/60))
 
 
 if __name__ == "__main__":

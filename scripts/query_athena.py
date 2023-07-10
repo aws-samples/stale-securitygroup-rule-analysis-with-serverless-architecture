@@ -3,18 +3,30 @@ import pandas as pd
 import io
 import re
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 # Follow this article to create Athena table (to be used in query) that can analyze Amazon VPC Flow Logs - https://aws.amazon.com/premiumsupport/knowledge-center/athena-analyze-vpc-flow-logs/
 params = {
-    'region': 'us-west-2',
-    'database': 'default',
-    'bucket': 'INSERT_ATHENA_QUERY_RESULTS_BUCKET_NAME',
-    'path': 'INSERT_ATHENA_QUERY_RESULTS_OUTPUT_PATH- Ex: vpcflowlogs/athena/output',
-    'query': 'select interface_id, dstport, count(dstport) port_used_times, protocol, flow_direction, srcaddr, dstaddr FROM "default"."INSERT_ATHENA_VPC_FLOW_LOGS_TABLE" WHERE dstport is not null and day=\'{}\' group by interface_id, dstport, protocol, flow_direction, srcaddr, dstaddr order by port_used_times desc'.format(datetime.strftime(datetime.now()-timedelta(1),"%Y/%m/%d"))
+    # AWS region to use
+    'region': 'eu-west-2',
+    # Name of database in glue
+    'database': 'glue_db_name',
+    # Name of table in glue
+    'table': 'athena_table_name',
+    # Name of S3 bucket Athena queries go into
+    'bucket': 'athena_s3_bucket',
+    # Path to use in bucket - no leading or trailing slash
+    # e.g. vpcflowlogs/athena
+    'path': 'path_to_flow_logs'
 }
 
+date_yst = (date.today() - timedelta(1))
+if date_yst.day > 9:
+    params['query'] = f"select interface_id, dstport, count(dstport) port_used_times, protocol, flow_direction, srcaddr, dstaddr FROM {params['database']}.{params['table']} WHERE dstport is not null and day='{date_yst.day}' group by interface_id, dstport, protocol, flow_direction, srcaddr, dstaddr order by port_used_times desc"
+else:
+    params['query'] = f"select interface_id, dstport, count(dstport) port_used_times, protocol, flow_direction, srcaddr, dstaddr FROM {params['database']}.{params['table']} WHERE dstport is not null and day='0{date_yst.day}' group by interface_id, dstport, protocol, flow_direction, srcaddr, dstaddr order by port_used_times desc"
+
 session = boto3.Session()
-outputLocation='s3://' + params['bucket'] + '/' + params['path'] + '/' + datetime.strftime(datetime.now()-timedelta(1),"%Y-%m-%d")
+outputLocation='s3://' + params['bucket'] + '/' + params['path'] + '/' + date_yst.isoformat().replace('-','/')
 
 def athena_query(client, params):
     

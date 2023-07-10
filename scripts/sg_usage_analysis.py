@@ -11,12 +11,12 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
 
-region="us-west-2"
+region="eu-west-2"
 ses_client = boto3.client('ses', region)
 s3_resource = boto3.resource('s3', region)
 s3 = boto3.client("s3")
 
-dynamodb = boto3.resource('dynamodb',"us-west-2")
+dynamodb = boto3.resource('dynamodb',"eu-west-2")
 dynamodb_tbl_name = dynamodb.Table('ports-usage-dummy')
 
 s3_bucket = "INSERT_S3_BUCKET_NAME_HERE"
