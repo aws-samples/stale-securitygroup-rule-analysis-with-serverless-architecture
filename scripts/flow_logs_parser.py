@@ -16,6 +16,7 @@ regions = ['eu-west-2']
 
 flow_logs_athena_results_bucket="INSERT_ATHENA_QUERY_RESULTS_S3_BUCKET_NAME_HERE"
 sg_rules_tbl_name="sg-analysis-rules-data"
+nic_interface_tbl="sg-analysis-interface-details"
 dynamodb_tbl_name="sg-analysis-rules-usage"
 athena_s3_prefix = "athena_results_prefix"
 date_yst = (date.today() - timedelta(3))
@@ -111,6 +112,19 @@ def insert_usage_data(sg_rule_id, sg_id, flow_dir, protocol, dstport_used_times)
     except Exception as e: 
         print("There was an error while trying to perform DynamoDB insert operation on Usage table: "+str(e))
 
+def get_interface_ddb(id:str) -> dict:
+    deserialize = TypeDeserializer()
+    response = dynamodb.get_item(
+        TableName=nic_interface_tbl,
+        Key={'id':{'S':id}}
+    )
+    if 'Item' in response:
+        nic_dict = {k: deserialize.deserialize(v) for k, v in response['Item'].items()}
+        return nic_dict
+    else:
+        raise ValueError(f'nic id: {id} not found!')
+
+
 def main():
     for object_summary in my_bucket.objects.filter(Prefix=f'{athena_s3_prefix}/{date_yst.isoformat().replace("-","/")}/'):
         if object_summary.key.endswith('.csv'): 
@@ -123,25 +137,11 @@ def main():
             for df in dfs:
                 for index, row in df.iterrows():
                     if row is not None and 'dstport' in row:
-                        nw_int_info = ec2.describe_network_interfaces(
-                            Filters=[
-                                {
-                                    'Name': 'network-interface-id',
-                                    'Values': [
-                                        row['interface_id'],
-                                    ]
-                                },
-                            ]
-                        )
+                        nw_int_info = get_interface_ddb(id=row['interface_id'])
                     
-                        for nwint in nw_int_info['NetworkInterfaces']:
-                                for grp in nwint['Groups']:
-                                    sg_id=grp['GroupId']
-                                    sg_name=grp['GroupName']
-                                    
-                        print(sg_id, sg_name, row['dstport'],row['port_used_times'],row['protocol'],row['flow_direction'],row['srcaddr'],row['dstaddr'])
-                        get_sg_rule_id(sg_id, sg_name, row['flow_direction'],row['protocol'],row['dstport'],row['port_used_times'])
-                        # insert_into_dynamodb(sg_id, row['dstport'],row['port_used_times'],row['protocol'],row['flow_direction'],row['srcaddr'],row['dstaddr'])
+                        for grp in nw_int_info['security_group_ids']:
+                            print(sg_id, row['dstport'],row['port_used_times'],row['protocol'],row['flow_direction'],row['srcaddr'],row['dstaddr'])
+                            get_sg_rule_id(sg_id, row['flow_direction'],row['protocol'],row['dstport'],row['port_used_times'])
 
     
             print("Writing rules data to DynamoDB table- completed at: "+str(datetime.now()))
