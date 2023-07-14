@@ -15,7 +15,8 @@ ec2 = boto3.client('ec2',"eu-west-2")
 regions = ['eu-west-2']
 
 flow_logs_athena_results_bucket="INSERT_ATHENA_QUERY_RESULTS_S3_BUCKET_NAME_HERE"
-sg_rules_tbl_name="sg-analysis-rules-data"
+sg_rules_tbl_name="security-groups"
+sg_rules_group_idx = "group_id-index"
 nic_interface_tbl="sg-analysis-interface-details"
 dynamodb_tbl_name="sg-analysis-rules-usage"
 athena_s3_prefix = "athena_results_prefix"
@@ -24,27 +25,27 @@ date_yst = (date.today() - timedelta(3))
 my_bucket = s3.Bucket(flow_logs_athena_results_bucket)
 
 
-def get_sg_rule_id(sg_id, sg_name, flow_dir, protocol, dstport, dstport_used_times):
+def get_sg_rule_id(sg_id, flow_dir, protocol, dstport, dstport_used_times):
     try:
         protocol_dict = {'6': 'tcp', '27': 'udp', '1': 'icmp', 'any': 'any'}
         key_list = list(protocol_dict.keys())
         val_list = list(protocol_dict.values())
         
-        getItemResponse=dynamodb.query(
+        response=dynamodb.query(
             TableName=sg_rules_tbl_name,
-            IndexName='sgrule',
+            IndexName=sg_rules_group_idx,
             KeyConditions={
-                "security_group_id":{
+                "group_id":{
                     'ComparisonOperator': 'EQ',
-                    'AttributeValueList': [ {"S": str(sg_id)} ]
+                    'AttributeValueList': [ {"S": sg_id} ]
                 }
-            },
-            FilterExpression='sg_rule_direction = :flow_dir',
-            ExpressionAttributeValues= {
-                ":flow_dir": {'S':str(flow_dir)}
             }
         )
-                
+        if flow_dir == 'egress':
+            resp_list = [{k: deserializer.deserialize(v) for k, v in r.items()} for r in response['Items'] if r['properties']['M']['IsEgress']['BOOL'] == True]
+        else:
+            resp_list = [{k: deserializer.deserialize(v) for k, v in r.items()} for r in response['Items'] if r['properties']['M']['IsEgress']['BOOL'] == False]
+
         for respItem in getItemResponse['Items']:
             deserializer = TypeDeserializer()
             deserialized_document = {k: deserializer.deserialize(v) for k, v in respItem.items()}
