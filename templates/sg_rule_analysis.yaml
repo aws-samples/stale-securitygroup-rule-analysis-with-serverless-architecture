@@ -15,7 +15,7 @@ Resources:
         Type: "AWS::IAM::Role"
         Properties:
             Path: "/service-role/"
-            RoleName: "sg-analysis-step-function-role"
+            RoleName: "sg-analysis-step-function-role-ks"
             AssumeRolePolicyDocument: "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"states.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}"
             MaxSessionDuration: 3600
             ManagedPolicyArns: 
@@ -26,7 +26,7 @@ Resources:
     IAMManagedPolicy:
         Type: "AWS::IAM::ManagedPolicy"
         Properties:
-            ManagedPolicyName: "SG_Analysis_Amazon_EventBridge_Invoke_Step_Functions"
+            ManagedPolicyName: "SG_Analysis_Amazon_EventBridge_Invoke_Step_Functions-KS"
             Path: "/service-role/"
             PolicyDocument: !Sub |
                 {
@@ -48,7 +48,7 @@ Resources:
         Type: "AWS::IAM::Role"
         Properties:
             Path: "/service-role/"
-            RoleName: "SG_Analysis_Glue_Access_Role"
+            RoleName: "SG_Analysis_Glue_Access_Role-KS"
             AssumeRolePolicyDocument: "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"glue.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}"
             MaxSessionDuration: 3600
             ManagedPolicyArns: 
@@ -63,7 +63,26 @@ Resources:
     StepFuncLogGroup:
         Type: "AWS::Logs::LogGroup"
         Properties:
-            LogGroupName: "/aws/vendedlogs/states/sg-analysis-step-function-logs"
+            LogGroupName: "/aws/vendedlogs/states/sg-analysis-step-function-logs-ks"
+
+    SGRulesDynamoTable:
+        Type: "AWS::DynamoDB::Table"
+        Properties:
+          TableName: sg-analysis-rules-data-ks
+          AttributeDefinitions:
+            - AttributeName: sg_rule_id
+              AttributeType: S
+            - AttributeName: security_group_id
+              AttributeType: S
+          KeySchema:
+            - AttributeName: sg_rule_id
+              KeyType: HASH
+            - AttributeName: security_group_id
+              KeyType: RANGE
+          ProvisionedThroughput:
+            ReadCapacityUnits: 5
+            WriteCapacityUnits: 5
+
 
     StepFunctionsStateMachine:
         Type: "AWS::StepFunctions::StateMachine"
@@ -74,19 +93,11 @@ Resources:
                   "Comment": "A description of my state machine",
                   "StartAt": "Glue CreateDynamoDBTables",
                   "States": {
-                    "Glue CreateDynamoDBTables": {
-                      "Type": "Task",
-                      "Resource": "arn:aws:states:::glue:startJobRun.sync",
-                      "Parameters": {
-                        "JobName": "sg-analysis-dynamodb-tables"
-                      },
-                      "Next": "Glue GetSGRulesData"
-                    },
                     "Glue GetSGRulesData": {
                       "Type": "Task",
                       "Resource": "arn:aws:states:::glue:startJobRun.sync",
                       "Parameters": {
-                        "JobName": "sg-analysis-get-rules-data"
+                        "JobName": "sg-analysis-get-rules-data-ks"
                       },
                       "Next": "Glue QueryVPCFlowLogsSaveToS3"
                     },
@@ -94,7 +105,7 @@ Resources:
                       "Type": "Task",
                       "Resource": "arn:aws:states:::glue:startJobRun.sync",
                       "Parameters": {
-                        "JobName": "sg-analysis-run-athena-query"
+                        "JobName": "sg-analysis-run-athena-query-ks"
                       },
                       "Next": "Glue ParseVPCFLowLogsSaveUsageCount"
                     },
@@ -102,13 +113,13 @@ Resources:
                       "Type": "Task",
                       "Resource": "arn:aws:states:::glue:startJobRun.sync",
                       "Parameters": {
-                        "JobName": "sg-analysis-flow-logs-parser"
+                        "JobName": "sg-analysis-flow-logs-parser-ks"
                       },
                       "End": true
                     }
                   }
                 }
-            RoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/service-role/sg-analysis-step-function-role"
+            RoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/service-role/sg-analysis-step-function-role-ks"
             StateMachineType: "STANDARD"
             LoggingConfiguration:
                 Destinations: 
@@ -120,20 +131,20 @@ Resources:
     EventsRule:
         Type: "AWS::Events::Rule"
         Properties:
-            Name: "sg-analysis-step-function"
+            Name: "sg-analysis-step-function-ks"
             ScheduleExpression: "cron(0 9 * * ? *)"
             State: "DISABLED"
             Targets: 
               - 
-                Arn: !Sub "arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:sg-analysis-step-function"
+                Arn: !Sub "arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:sg-analysis-step-function-ks"
                 Id: "Id70bcbcb6-9bda-4f24-8f45-8f3dbb65692c"
-                RoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/service-role/SG_Analysis_Amazon_EventBridge_Invoke_Step_Functions"
+                RoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/service-role/SG_Analysis_Amazon_EventBridge_Invoke_Step_Functions-KS"
             EventBusName: "default"
 
     GlueJob1:
         Type: "AWS::Glue::Job"
         Properties:
-            Name: "sg-analysis-run-athena-query"
+            Name: "sg-analysis-run-athena-query-ks"
             Description: "Job to run Athena query on VPC Flow logs and save to S3"
             Role: !GetAtt IAMRole2.Arn
             ExecutionProperty: 
@@ -165,7 +176,7 @@ Resources:
     GlueJob2:
         Type: "AWS::Glue::Job"
         Properties:
-            Name: "sg-analysis-get-rules-data"
+            Name: "sg-analysis-get-rules-data-ks"
             Description: "Job to get Security Group rules information"
             Role: !GetAtt IAMRole2.Arn
             ExecutionProperty: 
@@ -195,7 +206,7 @@ Resources:
     GlueJob3:
         Type: "AWS::Glue::Job"
         Properties:
-            Name: "sg-analysis-flow-logs-parser"
+            Name: "sg-analysis-flow-logs-parser-ks"
             Description: "Job to parse flow logs and calculate usage"
             Role: !GetAtt IAMRole2.Arn
             ExecutionProperty: 
@@ -217,27 +228,6 @@ Resources:
                                       - !Ref librariesLocation
                                       - 'awswrangler-2.14.0-py3-none-any.whl'
                 --job-language: "python"
-            MaxRetries: 1
-            Timeout: 2880
-            GlueVersion: "1.0"
-            MaxCapacity: 1
-
-    GlueJob5:
-        Type: "AWS::Glue::Job"
-        Properties:
-            Name: "sg-analysis-dynamodb-tables"
-            Description: "Job to create necessary DynamoDB tables to capture rules and usage information"
-            Role: !GetAtt IAMRole2.Arn
-            ExecutionProperty: 
-                MaxConcurrentRuns: 1
-            Command: 
-                Name: "pythonshell"
-                ScriptLocation: !Join
-                                - ''
-                                - - 's3://'
-                                  - !Ref scriptsLocation
-                                  - 'create_dynamodb_tables.py'
-                PythonVersion: "3.9"
             MaxRetries: 1
             Timeout: 2880
             GlueVersion: "1.0"
