@@ -65,7 +65,7 @@ Resources:
         Properties:
             LogGroupName: "/aws/vendedlogs/states/sg-analysis-step-function-logs-ks"
 
-    SGRulesDynamoTable:
+    DynamoTableSGRules:
         Type: "AWS::DynamoDB::Table"
         Properties:
           TableName: sg-analysis-rules-data-ks
@@ -83,6 +83,54 @@ Resources:
             ReadCapacityUnits: 5
             WriteCapacityUnits: 5
 
+    DynamoTableSGAnalysis:
+        Type: "AWS::DynamoDB::Table"
+        Properties:
+          TableName: sg-analysis-rules-usage-ks
+          GlobalSecondaryIndexes:
+            - IndexName: protocol
+              KeySchema:
+              - AttributeName: sg_id
+                KeyType: HASH 
+              - AttributeName: protocol
+                KeyType: RANGE
+              Projection:
+                ProjectionType: ALL
+              ProvisionedThroughput:
+                ReadCapacityUnits: 5
+                WriteCapacityUnits: 5
+          AttributeDefinitions:
+            - AttributeName: sg_rule_id
+              AttributeType: S
+            - AttributeName: sg_id
+              AttributeType: S
+            - AttributeName: protocol
+              AttributeType: S
+          KeySchema:
+            - AttributeName: sg_rule_id
+              KeyType: HASH
+          ProvisionedThroughput:
+            ReadCapacityUnits: 5
+            WriteCapacityUnits: 5
+
+    S3BucketAthena:
+      Type: "AWS::S3::Bucket"
+      DeletionPolicy: Retain
+      Properties:
+        BucketName: security-group-monitoring-test-bucket-athena-ks
+
+    S3BucketFlowlogs:
+      Type: "AWS::S3::Bucket"
+      DeletionPolicy: Retain
+      Properties:
+        BucketName: security-group-monitoring-test-bucket-flowlogs-ks
+
+    S3BucketResources:
+      Type: "AWS::S3::Bucket"
+      DeletionPolicy: Retain
+      Properties:
+        BucketName: security-group-monitoring-test-bucket-resources-ks
+
 
     StepFunctionsStateMachine:
         Type: "AWS::StepFunctions::StateMachine"
@@ -91,7 +139,7 @@ Resources:
             DefinitionString: |
                 {
                   "Comment": "A description of my state machine",
-                  "StartAt": "Glue CreateDynamoDBTables",
+                  "StartAt": "Glue GetSGRulesData",
                   "States": {
                     "Glue GetSGRulesData": {
                       "Type": "Task",
