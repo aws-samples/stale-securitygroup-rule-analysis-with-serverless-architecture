@@ -1,12 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: "Template to create resources for Security Group rules analysis"
 Parameters:
-  scriptsLocation:
-    Type: String
-    Default: ""
-  librariesLocation:
-    Type: String
-    Default: ""
   quicksightUserArn:
     Type: String
     Default: ""
@@ -202,15 +196,16 @@ Resources:
                 ScriptLocation: !Join
                                     - ''
                                     - - 's3://'
-                                      - !Ref scriptsLocation
+                                      - !Ref S3BucketResources
+                                      - '/scripts/'
                                       - 'query_athena.py'
                 PythonVersion: "3.9"
             DefaultArguments: 
                 --TempDir: !Join
                                 - ''
                                 - - 's3://'
-                                  - !Ref scriptsLocation
-                                  - 'temporary/'
+                                  - !Ref S3BucketResources
+                                  - '/temporary/'
                 --class: "GlueApp"
                 --enable-glue-datacatalog: "true"
                 --enable-job-insights: "false"
@@ -234,7 +229,8 @@ Resources:
                 ScriptLocation: !Join
                                     - ''
                                     - - 's3://'
-                                      - !Ref scriptsLocation
+                                      - !Ref S3BucketResources
+                                      - '/scripts/'
                                       - 'get_security_groups_data.py'
                 PythonVersion: "3.9"
             DefaultArguments: 
@@ -243,7 +239,8 @@ Resources:
                 --extra-py-files: !Join
                                     - ''
                                     - - 's3://'
-                                      - !Ref librariesLocation
+                                      - !Ref S3BucketResources
+                                      - '/libraries/'
                                       - 'boto3-1.27.1-py3-none-any.whl'
                 --job-language: "python"
             MaxRetries: 1
@@ -264,7 +261,8 @@ Resources:
                 ScriptLocation: !Join
                                     - ''
                                     - - 's3://'
-                                      - !Ref scriptsLocation
+                                      - !Ref S3BucketResources
+                                      - '/scripts/'
                                       - 'flow_logs_parser.py'
                 PythonVersion: "3.9"
             DefaultArguments: 
@@ -273,7 +271,8 @@ Resources:
                 --extra-py-files: !Join
                                     - ''
                                     - - 's3://'
-                                      - !Ref librariesLocation
+                                      - !Ref S3BucketResources
+                                      - '/libraries/'
                                       - 'awswrangler-2.14.0-py3-none-any.whl'
                 --job-language: "python"
             MaxRetries: 1
