@@ -25,6 +25,11 @@ date_yst = (date.today() - timedelta(3))
 
 my_bucket = s3.Bucket(flow_logs_athena_results_bucket)
 
+def network_test(rule_block,flow_addr):
+    net = IPv4Network(rule_block)
+    addr = IPv4Address(flow_addr)
+    result = addr in net
+    return result
 
 def get_sg_rule_id(sg_id, flow_dir, protocol, dstport, dstport_used_times):
     try:
