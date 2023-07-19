@@ -141,9 +141,9 @@ def main():
                         nw_int_info = get_interface_ddb(id=row['interface_id'])
                     
                         for grp in nw_int_info['security_group_ids']:
-                            print(sg_id, row['dstport'],row['port_used_times'],row['protocol'],row['flow_direction'],row['srcaddr'],row['dstaddr'])
-                            get_sg_rule_id(sg_id, row['flow_direction'],row['protocol'],row['dstport'],row['port_used_times'])
-
+                            print(grp, row['protocol'],row['flow_direction'],row['srcaddr'],row['srcport'],row['dstaddr'],row['dstport'])
+                            get_sg_rule_id(grp, row['protocol'],row['flow_direction'],row['srcaddr'],row['srcport'],row['dstaddr'],row['dstport'])
+    
     
             print("Writing rules data to DynamoDB table- completed at: "+str(datetime.now()))
             end = time.time()
