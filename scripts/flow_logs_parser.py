@@ -31,7 +31,9 @@ def network_test(rule_block,flow_addr):
     result = addr in net
     return result
 
-def get_sg_rule_id(sg_id, flow_dir, protocol, dstport, dstport_used_times):
+
+def get_sg_rule_id(sg_id, protocol, flow_dir, srcaddr, srcport, dstaddr, dstport):
+    deserializer = TypeDeserializer()
     try:
         protocol_dict = {'6': 'tcp', '27': 'udp', '1': 'icmp', 'any': 'any'}
         key_list = list(protocol_dict.keys())
@@ -52,31 +54,22 @@ def get_sg_rule_id(sg_id, flow_dir, protocol, dstport, dstport_used_times):
         else:
             resp_list = [{k: deserializer.deserialize(v) for k, v in r.items()} for r in response['Items'] if r['properties']['M']['IsEgress']['BOOL'] == False]
 
-        for respItem in getItemResponse['Items']:
-            deserializer = TypeDeserializer()
-            deserialized_document = {k: deserializer.deserialize(v) for k, v in respItem.items()}
-            if getItemResponse['Count'] == 1:
-                print("Security Group rule id is:"+str(deserialized_document['sg_rule_id']))
-                insert_usage_data(str(deserialized_document['sg_rule_id']), sg_id, flow_dir, str(deserialized_document['sg_rule_protocol']), dstport_used_times)
-            else:
-                incProtocol=protocol
-                incPort=dstport
-                exisProtocol=""
-                exisPort=""
-                exisSgrId=""
-                for k,v in deserialized_document.items():
-                    if k == "sg_rule_id":
-                        exisSgrId=v
-                    if k == "sg_rule_protocol":
-                        exisProtocol=v
-                    if k == "sg_rule_ports":
-                        exisPort=v
-                print("Security Group rule id is:"+exisSgrId)
-                if '-' in exisPort:
-                    startPort,endPort = exisPort.split('-')
-                if ((str(incProtocol) == str(key_list[val_list.index(exisProtocol)]) or exisProtocol == "any") and (incPort == exisPort or exisPort == "any" or int(str(startPort).strip()) <= int(incPort) <= int(str(endPort).strip()))):
-                    insert_usage_data(exisSgrId, sg_id, flow_dir, exisProtocol, dstport_used_times)
-        return getItemResponse
+        for respItem in resp_list:
+            try:
+                if dstport in [respItem['FromPort'], respItem['ToPort']] and protocol == respItem['protocol']:
+                    if flow_dir == 'egress':
+                        if network_test(rule_block=respItem['CidrIpv4'],flow_addr=dstaddr):
+                            print(f"Security Group rule id is: {respItem['id']}")
+                            insert_usage_data(sg_rule_id=respItem['id'],sg_id=sg_id, flow_dir=flow_dir,protocol=respItem['properties']['IpProtocol'],dstport=dstport)
+                    elif flow_dir == 'ingress':
+                        if network_test(rule_block=respItem['CidrIpv4'],flow_addr=srcaddr):
+                            insert_usage_data(sg_rule_id=respItem['id'],sg_id=sg_id, flow_dir=flow_dir,protocol=respItem['properties']['IpProtocol'],dstport=dstport)
+                else:
+                    print(f'no rule found for flow')
+            except Exception as e:
+                print(str(e))
+                raise e
+        return resp_list
     except Exception as e: 
         print("There was an error while trying to perform DynamoDB get operation on Rules table: "+str(e))
     
