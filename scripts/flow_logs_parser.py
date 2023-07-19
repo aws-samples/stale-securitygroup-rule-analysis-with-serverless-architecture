@@ -73,39 +73,40 @@ def get_sg_rule_id(sg_id, protocol, flow_dir, srcaddr, srcport, dstaddr, dstport
     except Exception as e: 
         print("There was an error while trying to perform DynamoDB get operation on Rules table: "+str(e))
     
-def insert_usage_data(sg_rule_id, sg_id, flow_dir, protocol, dstport_used_times):
+def insert_usage_data(sg_rule_id, sg_id, flow_dir, protocol, addr, dstport):
+    addr_rule_hash = [sg_rule_id,addr,dstport]
+    hash_digest = sha1(str(addr_rule_hash).encode()).hexdigest()
     try:
         checkRuleIdExists=dynamodb.query(
             TableName=dynamodb_tbl_name,
-            KeyConditions={
-                "sg_rule_id":{
-                    'ComparisonOperator': 'EQ',
-                    'AttributeValueList': [ {"S": str(sg_rule_id)} ]
-                }
-            }
+            KeyConditionExpression="sg_rule_id = :sg_rule_id",
+            ExpressionAttributeValues={':sg_rule_id':{'S':hash_digest}}
         )
         if checkRuleIdExists['Count'] == 0:
             insertItemResponse = dynamodb.put_item(
               TableName=dynamodb_tbl_name,
               Item={
-                    'sg_rule_id': {'S':str(sg_rule_id)},
+                    'sg_rule_id': {'S':str(hash_digest)},
+                    'rule_id': {'S':sg_rule_id},
                     'sg_id': {'S':str(sg_id)},
+                    'flow_direction': {'S':str(flow_dir)},
                     'protocol': {'S':str(protocol)},
-                    'used_times': {'N':str(dstport_used_times)},
-                    'sg_rule_last_used': {'S':datetime.strftime(datetime.now() - timedelta(1), '%Y-%m-%d')},
-                    'flow_direction': {'S':str(flow_dir)}
+                    'addr': {'S':str(addr)},
+                    'dstport': {'N':str(dstport)},
+                    'used_times': {'N':str(1)},
+                    'sg_rule_last_used': {'S':date_yst.strftime('%Y-%m-%d')},
                 }
             )
         else:
             updateItemResponse = dynamodb.update_item(
                 TableName=dynamodb_tbl_name,
                 Key={
-                  'sg_rule_id': {'S': str(sg_rule_id)},
+                  'sg_rule_id': {'S': str(hash_digest)},
                 },
-                UpdateExpression='SET used_times = used_times + :newusedtimes, sg_rule_last_used = :newlastused',
+                UpdateExpression='SET used_times = used_times + :val, sg_rule_last_used = :newlastused',
                 ExpressionAttributeValues={
-                    ':newusedtimes': {'N':str(dstport_used_times)},
-                    ':newlastused': {'S':datetime.strftime(datetime.now() - timedelta(1), '%Y-%m-%d')}
+                    ':val': {'N':str(1)},
+                    ':newlastused': {'S':date_yst.strftime('%Y-%m-%d')}
                 },
                 ReturnValues="UPDATED_NEW"
             )
