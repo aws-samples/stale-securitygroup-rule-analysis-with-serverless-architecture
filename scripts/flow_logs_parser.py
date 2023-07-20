@@ -16,13 +16,14 @@ ec2 = boto3.client('ec2',"eu-west-2")
 
 regions = ['eu-west-2']
 
-flow_logs_athena_results_bucket="INSERT_ATHENA_QUERY_RESULTS_S3_BUCKET_NAME_HERE"
+flow_logs_athena_results_bucket="security-group-monitoring-test-bucket-athena"
 sg_rules_tbl_name="security-groups"
 sg_rules_group_idx = "group_id-index"
 nic_interface_tbl="sg-analysis-interface-details"
 dynamodb_tbl_name="sg-analysis-rules-usage"
-athena_s3_prefix = "athena_results_prefix"
-date_yst = (date.today() - timedelta(3))
+sg_analysis_rules_use_idx='addr-id-index'
+athena_s3_prefix = "vpcflowlogs"
+date_yst = (date.today() - timedelta(4))
 
 my_bucket = s3.Bucket(flow_logs_athena_results_bucket)
 
@@ -128,27 +129,28 @@ def get_interface_ddb(id:str) -> dict:
 
 
 def main():
-    for object_summary in my_bucket.objects.filter(Prefix=f'{athena_s3_prefix}/{date_yst.isoformat().replace("-","/")}/'):
-        if object_summary.key.endswith('.csv'): 
-            # print(object_summary.key)
-            file_name = f"s3://{flow_logs_athena_results_bucket}/{object_summary.key}"
-            s3_folder_path = f's3://{flow_logs_athena_results_bucket}/{athena_s3_prefix}/{date_yst.isoformat().replace("-","/")}/'
-            start = time.time()
-            print("Writing rules data to DynamoDB table- started at: "+str(datetime.now()))
-            dfs = wr.s3.read_csv(path=s3_folder_path, chunksize=1000, encoding = 'ISO-8859-1')
-            for df in dfs:
-                for index, row in df.iterrows():
-                    if row is not None and 'dstport' in row:
-                        nw_int_info = get_interface_ddb(id=row['interface_id'])
-                    
-                        for grp in nw_int_info['security_group_ids']:
-                            print(grp, row['protocol'],row['flow_direction'],row['srcaddr'],row['srcport'],row['dstaddr'],row['dstport'])
-                            get_sg_rule_id(grp, row['protocol'],row['flow_direction'],row['srcaddr'],row['srcport'],row['dstaddr'],row['dstport'])
+    s3_folder_path = f's3://{flow_logs_athena_results_bucket}/{athena_s3_prefix}/{date_yst.isoformat().replace("-","/")}/'
+    start = time.time()
+    print("Writing rules data to DynamoDB table- started at: "+str(datetime.now()))
+    dfs = wr.s3.read_csv(path=s3_folder_path, chunksize=1000, encoding = 'ISO-8859-1')
+    for df in dfs:
+        try:
+            df['protocol'] = df['protocol'].map({6: 'tcp', 17: 'udp', 1: 'icmp'})
+            for index, row in df.iterrows():
+                if row is not None and 'dstport' in row:
+                    nw_int_info = get_interface_ddb(id=row['interface_id'])
+                
+                    for grp in nw_int_info['security_group_ids']:
+                        print(grp, row['protocol'],row['flow_direction'],row['srcaddr'],row['srcport'],row['dstaddr'],row['dstport'])
+                        get_sg_rule_id(grp, row['protocol'],row['flow_direction'],row['srcaddr'],row['srcport'],row['dstaddr'],row['dstport'])
+        except KeyError:
+            pass
+        except Exception as e:
+            raise e
     
-    
-            print("Writing rules data to DynamoDB table- completed at: "+str(datetime.now()))
-            end = time.time()
-            print("Total time taken in minutes: "+str((end - start)/60))
+    print("Writing rules data to DynamoDB table- completed at: "+str(datetime.now()))
+    end = time.time()
+    print("Total time taken in minutes: "+str((end - start)/60))
 
 
 if __name__ == "__main__":
