@@ -64,6 +64,16 @@ Resources:
         Type: "AWS::DynamoDB::Table"
         Properties:
           TableName: sg-analysis-rules-data-ks
+          GlobalSecondaryIndexes:
+            - IndexName: groups
+              KeySchema:
+              - AttributeName: group_id
+                KeyType: HASH 
+              Projection:
+                ProjectionType: ALL
+              ProvisionedThroughput:
+                ReadCapacityUnits: 5
+                WriteCapacityUnits: 5
           AttributeDefinitions:
             - AttributeName: id
               AttributeType: S
@@ -72,8 +82,6 @@ Resources:
           KeySchema:
             - AttributeName: id
               KeyType: HASH
-            - AttributeName: group_id
-              KeyType: RANGE
           ProvisionedThroughput:
             ReadCapacityUnits: 5
             WriteCapacityUnits: 5
@@ -95,14 +103,14 @@ Resources:
                 ReadCapacityUnits: 5
                 WriteCapacityUnits: 5
           AttributeDefinitions:
-            - AttributeName: sg_rule_id
+            - AttributeName: sgr_flow_hash
               AttributeType: S
             - AttributeName: sg_id
               AttributeType: S
             - AttributeName: protocol
               AttributeType: S
           KeySchema:
-            - AttributeName: sg_rule_id
+            - AttributeName: sgr_flow_hash
               KeyType: HASH
           ProvisionedThroughput:
             ReadCapacityUnits: 5
