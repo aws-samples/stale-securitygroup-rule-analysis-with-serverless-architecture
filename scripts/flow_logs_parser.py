@@ -8,6 +8,7 @@ import uuid
 from datetime import datetime, timedelta, date
 from boto3.dynamodb.types import TypeDeserializer, TypeSerializer
 from ipaddress import IPv4Address, IPv4Network
+from hashlib import sha1
 
 s3 = boto3.resource('s3',"eu-west-2")
 dynamodb = boto3.client('dynamodb',"eu-west-2")
