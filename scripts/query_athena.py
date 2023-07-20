@@ -21,9 +21,9 @@ params = {
 
 date_yst = (date.today() - timedelta(1))
 if date_yst.day > 9:
-    params['query'] = f"select interface_id, dstport, count(dstport) port_used_times, protocol, flow_direction, srcaddr, dstaddr FROM {params['database']}.{params['table']} WHERE dstport is not null and day='{date_yst.day}' group by interface_id, dstport, protocol, flow_direction, srcaddr, dstaddr order by port_used_times desc"
+    params['query'] = f"select interface_id, protocol, flow_direction, srcaddr, srcport, dstaddr, dstport FROM {params['database']}.{params['table']} WHERE dstport is not null and day='{date_yst.day}' and action='ACCEPT'"
 else:
-    params['query'] = f"select interface_id, dstport, count(dstport) port_used_times, protocol, flow_direction, srcaddr, dstaddr FROM {params['database']}.{params['table']} WHERE dstport is not null and day='0{date_yst.day}' group by interface_id, dstport, protocol, flow_direction, srcaddr, dstaddr order by port_used_times desc"
+    params['query'] = f"select interface_id, protocol, flow_direction, srcaddr, srcport, dstaddr, dstport FROM {params['database']}.{params['table']} WHERE dstport is not null and day='0{date_yst.day}' and action='ACCEPT'"
 
 session = boto3.Session()
 outputLocation='s3://' + params['bucket'] + '/' + params['path'] + '/' + date_yst.isoformat().replace('-','/')
