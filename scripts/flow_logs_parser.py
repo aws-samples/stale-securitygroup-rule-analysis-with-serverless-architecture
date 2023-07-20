@@ -57,14 +57,14 @@ def get_sg_rule_id(sg_id, protocol, flow_dir, srcaddr, srcport, dstaddr, dstport
 
         for respItem in resp_list:
             try:
-                if dstport in [respItem['FromPort'], respItem['ToPort']] and protocol == respItem['protocol']:
+                if dstport in range(int(respItem['properties']['FromPort']), int(respItem['properties']['ToPort'])+1) and protocol == respItem['properties']['IpProtocol']:
                     if flow_dir == 'egress':
-                        if network_test(rule_block=respItem['CidrIpv4'],flow_addr=dstaddr):
+                        if network_test(rule_block=respItem['properties']['CidrIpv4'],flow_addr=dstaddr):
                             print(f"Security Group rule id is: {respItem['id']}")
-                            insert_usage_data(sg_rule_id=respItem['id'],sg_id=sg_id, flow_dir=flow_dir,protocol=respItem['properties']['IpProtocol'],dstport=dstport)
+                            insert_usage_data(sg_rule_id=respItem['id'],sg_id=sg_id, flow_dir=flow_dir,protocol=respItem['properties']['IpProtocol'],addr=dstaddr,dstport=dstport)
                     elif flow_dir == 'ingress':
-                        if network_test(rule_block=respItem['CidrIpv4'],flow_addr=srcaddr):
-                            insert_usage_data(sg_rule_id=respItem['id'],sg_id=sg_id, flow_dir=flow_dir,protocol=respItem['properties']['IpProtocol'],dstport=dstport)
+                        if network_test(rule_block=respItem['properties']['CidrIpv4'],flow_addr=srcaddr):
+                            insert_usage_data(sg_rule_id=respItem['id'],sg_id=sg_id, flow_dir=flow_dir,protocol=respItem['properties']['IpProtocol'],addr=srcaddr,dstport=dstport)
                 else:
                     print(f'no rule found for flow')
             except Exception as e:
