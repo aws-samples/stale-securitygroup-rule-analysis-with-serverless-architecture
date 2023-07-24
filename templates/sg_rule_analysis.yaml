@@ -115,6 +115,20 @@ Resources:
           ProvisionedThroughput:
             ReadCapacityUnits: 5
             WriteCapacityUnits: 5
+      
+    DynamoTablENIAnalysis:
+        Type: "AWS::DynamoDB::Table"
+        Properties:
+          TableName: sg-analysis-interface-details-ks
+          AttributeDefinitions:
+            - AttributeName: id
+              AttributeType: S
+          KeySchema:
+            - AttributeName: id
+              KeyType: HASH
+          ProvisionedThroughput:
+            ReadCapacityUnits: 5
+            WriteCapacityUnits: 5
 
     S3BucketAthena:
       Type: "AWS::S3::Bucket"
@@ -302,3 +316,17 @@ Resources:
         Code:
           S3Bucket: security-group-monitoring-test-bucket-resources
           S3Key: GetSGTest-5635c8ba-9036-4b27-a232-ffb9f8874040.zip
+      
+    LambdaGetENI:
+      Type: "AWS::Lambda::Function"
+      DependsOn: IAMRole2
+      Properties:
+        Role: arn:aws:iam::019050653029:role/service-role/SG_Analysis_Glue_Access_Role_KS
+        Handler: lambda_function.lambda_handler
+        Environment:
+          Variables:
+            DB_TABLE: sg-analysis-interface-details-ks
+        Runtime: python3.10
+        Code:
+          S3Bucket: security-group-monitoring-test-bucket-resources
+          S3Key: GetENITest-787e5a66-3dc8-4c70-b8a6-f9e4ba4761d5.zip
