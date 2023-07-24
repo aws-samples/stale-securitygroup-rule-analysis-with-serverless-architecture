@@ -12,7 +12,6 @@ from hashlib import sha1
 
 s3 = boto3.resource('s3',"eu-west-2")
 dynamodb = boto3.client('dynamodb',"eu-west-2")
-ec2 = boto3.client('ec2',"eu-west-2")
 
 regions = ['eu-west-2']
 
