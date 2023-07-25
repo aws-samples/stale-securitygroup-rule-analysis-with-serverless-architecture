@@ -249,10 +249,8 @@ Resources:
                       - s3:HeadObject
                       - s3:List*
                     Resource:
-                      - arn:aws:s3:::security-group-monitoring-test-res-bucket
-                      - arn:aws:s3:::security-group-monitoring-test-res-bucket/*
-                      - arn:aws:s3:::security-group-monitoring-test-bucket-athena
-                      - arn:aws:s3:::security-group-monitoring-test-bucket-athena/*
+                      - !ImportValue sga-resources-bucket-arn
+                      - !ImportValue sga-athena-bucket-arn
 
     GlueJob1:
         Type: "AWS::Glue::Job"
@@ -267,7 +265,7 @@ Resources:
                 ScriptLocation: !Join
                                     - ''
                                     - - 's3://'
-                                      - !Ref S3BucketResources
+                                      - !ImportValue sga-resources-bucket-ref
                                       - '/scripts/'
                                       - 'query_athena.py'
                 PythonVersion: "3.9"
@@ -275,7 +273,7 @@ Resources:
                 --TempDir: !Join
                                 - ''
                                 - - 's3://'
-                                  - !Ref S3BucketResources
+                                  - !ImportValue sga-resources-bucket-ref
                                   - '/temporary/'
                 --class: "GlueApp"
                 --enable-glue-datacatalog: "true"
@@ -311,10 +309,8 @@ Resources:
                           - s3:HeadObject
                           - s3:List*
                         Resource:
-                          - arn:aws:s3:::security-group-monitoring-test-res-bucket
-                          - arn:aws:s3:::security-group-monitoring-test-res-bucket/*
-                          - arn:aws:s3:::security-group-monitoring-test-bucket-athena
-                          - arn:aws:s3:::security-group-monitoring-test-bucket-athena/*
+                          - !ImportValue sga-resources-bucket-arn
+                          - !ImportValue sga-athena-bucket-arn
               - PolicyName: GlueJobDynamoDBPolicy
                 PolicyDocument:
                   Version: '2012-10-17'
@@ -350,7 +346,7 @@ Resources:
                 ScriptLocation: !Join
                                     - ''
                                     - - 's3://'
-                                      - !Ref S3BucketResources
+                                      - !ImportValue sga-resources-bucket-ref
                                       - '/scripts/'
                                       - 'flow_logs_parser.py'
                 PythonVersion: "3.9"
@@ -360,7 +356,7 @@ Resources:
                 --extra-py-files: !Join
                                     - ''
                                     - - 's3://'
-                                      - !Ref S3BucketResources
+                                      - !ImportValue sga-resources-bucket-ref
                                       - '/libraries/'
                                       - 'awswrangler-2.14.0-py3-none-any.whl'
                 --job-language: "python"
@@ -413,7 +409,7 @@ Resources:
             DB_TABLE: !Ref DynamoTableSGRules
         Runtime: python3.10
         Code:
-          S3Bucket: security-group-monitoring-test-bucket-resources
+          S3Bucket: !ImportValue sga-resources-bucket-ref
           S3Key: GetSGTest-5635c8ba-9036-4b27-a232-ffb9f8874040.zip
 
     SgaGetEniLambdaIAMRole:
@@ -461,5 +457,5 @@ Resources:
             DB_TABLE: !GetAtt DynamoTablENIAnalysis.Arn
         Runtime: python3.10
         Code:
-          S3Bucket: security-group-monitoring-test-bucket-resources
+          S3Bucket: !ImportValue sga-resources-bucket-ref
           S3Key: GetENITest-787e5a66-3dc8-4c70-b8a6-f9e4ba4761d5.zip
