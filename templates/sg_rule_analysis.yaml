@@ -508,7 +508,7 @@ Resources:
         Handler: lambda_function.lambda_handler
         Environment:
           Variables:
-            DB_TABLE: !GetAtt DynamoTablENIAnalysis.Arn
+            DB_TABLE: !Ref DynamoTablENIAnalysis
         Runtime: python3.10
         Code:
           S3Bucket: !ImportValue sga-resources-bucket-ref
