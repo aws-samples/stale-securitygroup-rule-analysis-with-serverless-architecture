@@ -20,7 +20,6 @@ Resources:
                 Resource: "*"
           Description: Managed policy for CloudWatch Logs for use with the Security Group Analysis Solution
           Path: "/"
-          ManagedPolicyName: SgaCloudWatchLogsPolicy
     
     SgaStepFunctionIAMRole:
         Type: AWS::IAM::Role
