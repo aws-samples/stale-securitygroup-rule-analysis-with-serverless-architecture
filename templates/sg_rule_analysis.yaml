@@ -158,25 +158,6 @@ Resources:
             ReadCapacityUnits: 5
             WriteCapacityUnits: 5
 
-    S3BucketAthena:
-      Type: "AWS::S3::Bucket"
-      # DeletionPolicy: Retain
-      Properties:
-        BucketName: security-group-monitoring-test-bucket-athena-ks
-
-    S3BucketFlowlogs:
-      Type: "AWS::S3::Bucket"
-      # DeletionPolicy: Retain
-      Properties:
-        BucketName: security-group-monitoring-test-bucket-flowlogs-ks
-
-    S3BucketResources:
-      Type: "AWS::S3::Bucket"
-      # DeletionPolicy: Retain
-      Properties:
-        BucketName: security-group-monitoring-test-bucket-resources-ks
-
-
     StepFunctionsStateMachine:
         Type: "AWS::StepFunctions::StateMachine"
         Properties:
