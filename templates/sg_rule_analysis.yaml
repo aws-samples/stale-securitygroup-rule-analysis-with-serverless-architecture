@@ -162,17 +162,55 @@ Resources:
         Type: "AWS::StepFunctions::StateMachine"
         Properties:
             StateMachineName: !Ref EventsRule
-            DefinitionString: |
+            DefinitionString: !Sub |
                 {
                   "Comment": "A description of my state machine",
-                  "StartAt": "Glue GetSGRulesData",
+                  "StartAt": "Lambda GetSG",
                   "States": {
-                    "Glue GetSGRulesData": {
+                    "Lambda GetSG": {
                       "Type": "Task",
-                      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+                      "Resource": "arn:aws:states:::lambda:invoke",
+                      "OutputPath": "$.Payload",
                       "Parameters": {
-                        "JobName": "sg-analysis-get-rules-data-ks"
+                        "Payload.$": "$",
+                        "FunctionName": "${LambdaGetSG.Arn}"
                       },
+                      "Retry": [
+                        {
+                          "ErrorEquals": [
+                            "Lambda.ServiceException",
+                            "Lambda.AWSLambdaException",
+                            "Lambda.SdkClientException",
+                            "Lambda.TooManyRequestsException"
+                          ],
+                          "IntervalSeconds": 2,
+                          "MaxAttempts": 6,
+                          "BackoffRate": 2
+                        }
+                      ],
+                      "Next": "Lambda GetEni"
+                    },
+                    "Lambda GetEni": {
+                      "Type": "Task",
+                      "Resource": "arn:aws:states:::lambda:invoke",
+                      "OutputPath": "$.Payload",
+                      "Parameters": {
+                        "Payload.$": "$",
+                        "FunctionName": "${LambdaGetENI.Arn}"
+                      },
+                      "Retry": [
+                        {
+                          "ErrorEquals": [
+                            "Lambda.ServiceException",
+                            "Lambda.AWSLambdaException",
+                            "Lambda.SdkClientException",
+                            "Lambda.TooManyRequestsException"
+                          ],
+                          "IntervalSeconds": 2,
+                          "MaxAttempts": 6,
+                          "BackoffRate": 2
+                        }
+                      ],
                       "Next": "Glue QueryVPCFlowLogsSaveToS3"
                     },
                     "Glue QueryVPCFlowLogsSaveToS3": {
