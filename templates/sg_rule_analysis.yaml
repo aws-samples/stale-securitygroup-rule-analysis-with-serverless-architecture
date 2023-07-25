@@ -1,9 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: "Template to create resources for Security Group rules analysis"
-Parameters:
-  quicksightUserArn:
-    Type: String
-    Default: ""
 Resources:
 
     SgaCloudWatchLogsPolicy:
@@ -44,8 +40,8 @@ Resources:
                     Action:
                       - lambda:InvokeFunction
                     Resource:
-                      - !GetAtt LambdaGetSG.Arn
-                      - !GetAtt LambdaGetENI.Arn
+                      - !GetAtt SgaGetSgLambda.Arn
+                      - !GetAtt SgaGetEniLambda.Arn
             - PolicyName: SgaSfCwlStepFunctions
               PolicyDocument:
                 Version: '2012-10-17'
@@ -65,7 +61,6 @@ Resources:
     IAMManagedPolicy:
         Type: "AWS::IAM::ManagedPolicy"
         Properties:
-            ManagedPolicyName: "SG_Analysis_Amazon_EventBridge_Invoke_Step_Functions_KS"
             Path: "/service-role/"
             PolicyDocument: !Sub |
                 {
@@ -91,7 +86,6 @@ Resources:
     DynamoTableSGRules:
         Type: "AWS::DynamoDB::Table"
         Properties:
-          TableName: sg-analysis-rules-data-ks
           GlobalSecondaryIndexes:
             - IndexName: groups
               KeySchema:
@@ -117,7 +111,6 @@ Resources:
     DynamoTableSGAnalysis:
         Type: "AWS::DynamoDB::Table"
         Properties:
-          TableName: sg-analysis-rules-usage-ks
           GlobalSecondaryIndexes:
             - IndexName: protocol
               KeySchema:
@@ -144,10 +137,9 @@ Resources:
             ReadCapacityUnits: 5
             WriteCapacityUnits: 5
       
-    DynamoTablENIAnalysis:
+    DynamoTableENIAnalysis:
         Type: "AWS::DynamoDB::Table"
         Properties:
-          TableName: sg-analysis-interface-details-ks
           AttributeDefinitions:
             - AttributeName: id
               AttributeType: S
@@ -173,7 +165,7 @@ Resources:
                       "OutputPath": "$.Payload",
                       "Parameters": {
                         "Payload.$": "$",
-                        "FunctionName": "${LambdaGetSG.Arn}"
+                        "FunctionName": "${SgaGetSgLambda.Arn}"
                       },
                       "Retry": [
                         {
@@ -196,7 +188,7 @@ Resources:
                       "OutputPath": "$.Payload",
                       "Parameters": {
                         "Payload.$": "$",
-                        "FunctionName": "${LambdaGetENI.Arn}"
+                        "FunctionName": "${SgaGetEniLambda.Arn}"
                       },
                       "Retry": [
                         {
@@ -217,7 +209,7 @@ Resources:
                       "Type": "Task",
                       "Resource": "arn:aws:states:::glue:startJobRun.sync",
                       "Parameters": {
-                        "JobName": "sg-analysis-run-athena-query-ks"
+                        "JobName": "${SgaStartAthenaQueryGlueJob}"
                       },
                       "Next": "Glue ParseVPCFLowLogsSaveUsageCount"
                     },
@@ -225,7 +217,7 @@ Resources:
                       "Type": "Task",
                       "Resource": "arn:aws:states:::glue:startJobRun.sync",
                       "Parameters": {
-                        "JobName": "sg-analysis-flow-logs-parser-ks"
+                        "JobName": "${SgaParseFlowLogsGlueJob}"
                       },
                       "End": true
                     }
@@ -298,10 +290,9 @@ Resources:
                           - - !ImportValue sga-athena-bucket-arn
                             - "/*"
 
-    GlueJob1:
+    SgaStartAthenaQueryGlueJob:
         Type: "AWS::Glue::Job"
         Properties:
-            Name: "sg-analysis-run-athena-query-ks"
             Description: "Job to run Athena query on VPC Flow logs and save to S3"
             Role: !GetAtt SgaStartAthenaQueryGlueJobIAMRole.Arn
             ExecutionProperty: 
@@ -375,7 +366,7 @@ Resources:
                         - dynamodb:GetItem
                       Resource:
                         - !GetAtt DynamoTableSGRules.Arn
-                        - !GetAtt DynamoTablENIAnalysis.Arn
+                        - !GetAtt DynamoTableENIAnalysis.Arn
               - PolicyName: GlueJobDynamoDBReadWritePolicy
                 PolicyDocument:
                   Version: '2012-10-17'
@@ -387,10 +378,9 @@ Resources:
                         - dynamodb:UpdateItem
                       Resource: !GetAtt DynamoTableSGAnalysis.Arn
     
-    GlueJob3:
+    SgaParseFlowLogsGlueJob:
         Type: "AWS::Glue::Job"
         Properties:
-            Name: "sg-analysis-flow-logs-parser-ks"
             Description: "Job to parse flow logs and calculate usage"
             Role: !GetAtt SgaParseFlowLogsGlueJobIAMRole.Arn
             ExecutionProperty: 
@@ -453,7 +443,7 @@ Resources:
                       - dynamodb:Query
                     Resource: !GetAtt DynamoTableSGRules.Arn
 
-    LambdaGetSG:
+    SgaGetSgLambda:
       Type: "AWS::Lambda::Function"
       Properties:
         Role: !GetAtt SgaGetSgLambdaIAMRole.Arn
@@ -500,16 +490,16 @@ Resources:
                     Action:
                       - dynamodb:PutItem
                       - dynamodb:Query
-                    Resource: !GetAtt DynamoTablENIAnalysis.Arn
+                    Resource: !GetAtt DynamoTableENIAnalysis.Arn
 
-    LambdaGetENI:
+    SgaGetEniLambda:
       Type: "AWS::Lambda::Function"
       Properties:
         Role: !GetAtt SgaGetEniLambdaIAMRole.Arn
         Handler: lambda_function.lambda_handler
         Environment:
           Variables:
-            DB_TABLE: !Ref DynamoTablENIAnalysis
+            DB_TABLE: !Ref DynamoTableENIAnalysis
         Runtime: python3.10
         Timeout: 300
         Code:
