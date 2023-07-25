@@ -462,6 +462,7 @@ Resources:
           Variables:
             DB_TABLE: !Ref DynamoTableSGRules
         Runtime: python3.10
+        Timeout: 300
         Code:
           S3Bucket: !ImportValue sga-resources-bucket-ref
           S3Key: GetSGTest-5635c8ba-9036-4b27-a232-ffb9f8874040.zip
@@ -510,6 +511,7 @@ Resources:
           Variables:
             DB_TABLE: !Ref DynamoTablENIAnalysis
         Runtime: python3.10
+        Timeout: 300
         Code:
           S3Bucket: !ImportValue sga-resources-bucket-ref
           S3Key: GetENITest-787e5a66-3dc8-4c70-b8a6-f9e4ba4761d5.zip
