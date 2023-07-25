@@ -250,7 +250,15 @@ Resources:
                       - s3:List*
                     Resource:
                       - !ImportValue sga-resources-bucket-arn
+                      - !Join
+                          - ''
+                          - - !ImportValue sga-resources-bucket-arn
+                            - "/*"
                       - !ImportValue sga-athena-bucket-arn
+                      - !Join
+                          - ''
+                          - - !ImportValue sga-athena-bucket-arn
+                            - "/*"
 
     GlueJob1:
         Type: "AWS::Glue::Job"
@@ -310,7 +318,15 @@ Resources:
                           - s3:List*
                         Resource:
                           - !ImportValue sga-resources-bucket-arn
+                          - !Join
+                              - ''
+                              - - !ImportValue sga-resources-bucket-arn
+                                - "/*"
                           - !ImportValue sga-athena-bucket-arn
+                          - !Join
+                              - ''
+                              - - !ImportValue sga-athena-bucket-arn
+                                - "/*"
               - PolicyName: GlueJobDynamoDBPolicy
                 PolicyDocument:
                   Version: '2012-10-17'
