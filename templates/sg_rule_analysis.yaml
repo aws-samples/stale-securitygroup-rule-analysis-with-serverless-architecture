@@ -5,49 +5,18 @@ Parameters:
     Type: String
     Default: ""
 Resources:
+    IAMRole:
+        Type: "AWS::IAM::Role"
+        Properties:
+            Path: "/service-role/"
+            RoleName: "sg-analysis-step-function-role-ks"
+            AssumeRolePolicyDocument: "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"states.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}"
+            MaxSessionDuration: 3600
+            ManagedPolicyArns: 
+              - !Sub "arn:aws:iam::aws:policy/CloudWatchLogsFullAccess"
+              - !Sub "arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole"
+              - !Sub "arn:aws:iam::aws:policy/AWSXrayFullAccess"
 
-    SgaCloudWatchLogsPolicy:
-        Type: AWS::IAM::ManagedPolicy
-        Properties:
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - logs:CreateLogGroup
-                  - logs:CreateLogStream
-                  - logs:PutLogEvents
-                Resource: "*"
-          Description: Managed policy for CloudWatch Logs for use with the Security Group Analysis Solution
-          Path: "/"
-          ManagedPolicyName: SgaCloudWatchLogsPolicy
-    
-    SgaStepFunctionIAMRole:
-        Type: AWS::IAM::Role
-        Properties:
-          AssumeRolePolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Principal:
-                  Service: states.amazonaws.com
-                Action: sts:AssumeRole
-          Path: /
-          ManagedPolicyArns:
-            - arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole
-            - !Ref SgaCloudWatchLogsPolicy
-          Policies:
-            - PolicyName: SgaSfLambdaInvokePolicy
-              PolicyDocument:
-                Version: '2012-10-17'
-                Statement:
-                  - Effect: Allow
-                    Action:
-                      - lambda:InvokeFunction
-                    Resource:
-                      - !GetAtt LambdaGetSG.Arn
-                      - !GetAtt LambdaGetENI.Arn
-    
     IAMManagedPolicy:
         Type: "AWS::IAM::ManagedPolicy"
         Properties:
@@ -68,6 +37,39 @@ Resources:
                         }
                     ]
                 }
+
+    IAMRole2:
+        Type: "AWS::IAM::Role"
+        Properties:
+            Path: "/service-role/"
+            RoleName: "SG_Analysis_Lambda_Access_Role_KS"
+            AssumeRolePolicyDocument: "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"lambda.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}"
+            MaxSessionDuration: 3600
+            ManagedPolicyArns: 
+              - "arn:aws:iam::aws:policy/AmazonEC2FullAccess"
+              - "arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole"
+              - "arn:aws:iam::aws:policy/AmazonSESFullAccess"
+              - "arn:aws:iam::aws:policy/CloudWatchFullAccess"
+              - "arn:aws:iam::aws:policy/AmazonAthenaFullAccess"
+              - "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
+              - "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+              - "arn:aws:iam::aws:policy/service-role/AWSLambdaRole"
+
+    IAMRole3:
+        Type: "AWS::IAM::Role"
+        Properties:
+            Path: "/service-role/"
+            RoleName: "SG_Analysis_Glue_Access_Role_KS"
+            AssumeRolePolicyDocument: "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"glue.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}"
+            MaxSessionDuration: 3600
+            ManagedPolicyArns: 
+              - "arn:aws:iam::aws:policy/AmazonEC2FullAccess"
+              - "arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole"
+              - "arn:aws:iam::aws:policy/AmazonSESFullAccess"
+              - "arn:aws:iam::aws:policy/CloudWatchFullAccess"
+              - "arn:aws:iam::aws:policy/AmazonAthenaFullAccess"
+              - "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
+              - "arn:aws:iam::aws:policy/AmazonS3FullAccess"
 
     StepFuncLogGroup:
         Type: "AWS::Logs::LogGroup"
@@ -198,7 +200,7 @@ Resources:
                     }
                   }
                 }
-            RoleArn: !GetAtt SgaStepFunctionIAMRole.Arn
+            RoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/service-role/sg-analysis-step-function-role-ks"
             StateMachineType: "STANDARD"
             LoggingConfiguration:
                 Destinations: 
@@ -220,51 +222,12 @@ Resources:
                 RoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/service-role/SG_Analysis_Amazon_EventBridge_Invoke_Step_Functions"
             EventBusName: "default"
 
-    SgaStartAthenaQueryGlueJobIAMRole:
-        Type: AWS::IAM::Role
-        Properties:
-          AssumeRolePolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Principal:
-                  Service: glue.amazonaws.com
-                Action: sts:AssumeRole
-          Path: /
-          ManagedPolicyArns:
-            - !Ref SgaCloudWatchLogsPolicy
-          Policies:
-            - PolicyName: GlueJobPolicy
-              PolicyDocument:
-                Version: '2012-10-17'
-                Statement:
-                  - Effect: Allow
-                    Action:
-                      - athena:StartQueryExecution
-                      - athena:GetQueryExecution
-                      - athena:GetQueryResults
-                    Resource: "*"
-            - PolicyName: GlueJobS3Access
-              PolicyDocument:
-                Version: '2012-10-17'
-                Statement:
-                  - Effect: Allow
-                    Action:
-                      - s3:Get*
-                      - s3:HeadObject
-                      - s3:List*
-                    Resource:
-                      - arn:aws:s3:::security-group-monitoring-test-res-bucket
-                      - arn:aws:s3:::security-group-monitoring-test-res-bucket/*
-                      - arn:aws:s3:::security-group-monitoring-test-bucket-athena
-                      - arn:aws:s3:::security-group-monitoring-test-bucket-athena/*
-
     GlueJob1:
         Type: "AWS::Glue::Job"
         Properties:
             Name: "sg-analysis-run-athena-query-ks"
             Description: "Job to run Athena query on VPC Flow logs and save to S3"
-            Role: !GetAtt SgaStartAthenaQueryGlueJobIAMRole.Arn
+            Role: !GetAtt IAMRole3.Arn
             ExecutionProperty: 
                 MaxConcurrentRuns: 1
             Command: 
@@ -287,67 +250,54 @@ Resources:
                 --enable-job-insights: "false"
                 --job-language: "python"
                 --prebuilt-library-option: "prebuilt-library-enable"
+                --region: "eu-west-2"
+                --database: "sg-analysis-rules-usage-ks"
+                --table: "sg-analysis-rules-usage-ks"
+                --bucket: "sga-buckets-sgas3bucketathena-1oadk3sp8xq5n"
+                --path: "path"
             MaxRetries: 1
             Timeout: 2880
             GlueVersion: "1.0"
             MaxCapacity: 0.0625
 
-    SgaParseFlowLogsGlueJobIAMRole:
-        Type: AWS::IAM::Role
+    GlueJob2:
+        Type: "AWS::Glue::Job"
         Properties:
-          AssumeRolePolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Principal:
-                  Service: glue.amazonaws.com
-                Action: sts:AssumeRole
-          Path: /
-          ManagedPolicyArns:
-            - !Ref SgaCloudWatchLogsPolicy
-          Policies:
-              - PolicyName: GlueJobS3Access
-                PolicyDocument:
-                    Version: '2012-10-17'
-                    Statement:
-                      - Effect: Allow
-                        Action:
-                          - s3:Get*
-                          - s3:HeadObject
-                          - s3:List*
-                        Resource:
-                          - arn:aws:s3:::security-group-monitoring-test-res-bucket
-                          - arn:aws:s3:::security-group-monitoring-test-res-bucket/*
-                          - arn:aws:s3:::security-group-monitoring-test-bucket-athena
-                          - arn:aws:s3:::security-group-monitoring-test-bucket-athena/*
-              - PolicyName: GlueJobDynamoDBPolicy
-                PolicyDocument:
-                  Version: '2012-10-17'
-                  Statement:
-                    - Effect: Allow
-                      Action:
-                        - dynamodb:Query
-                        - dynamodb:GetItem
-                      Resource:
-                        - !GetAtt DynamoTableSGRules.Arn
-                        - !GetAtt DynamoTablENIAnalysis.Arn
-              - PolicyName: GlueJobDynamoDBReadWritePolicy
-                PolicyDocument:
-                  Version: '2012-10-17'
-                  Statement:
-                    - Effect: Allow
-                      Action:
-                        - dynamodb:PutItem
-                        - dynamodb:GetItem
-                        - dynamodb:UpdateItem
-                      Resource: !GetAtt DynamoTableSGAnalysis.Arn
-    
+            Name: "sg-analysis-get-rules-data-ks"
+            Description: "Job to get Security Group rules information"
+            Role: !GetAtt IAMRole3.Arn
+            ExecutionProperty: 
+                MaxConcurrentRuns: 1
+            Command: 
+                Name: "pythonshell"
+                ScriptLocation: !Join
+                                    - ''
+                                    - - 's3://'
+                                      - !Ref S3BucketResources
+                                      - '/scripts/'
+                                      - 'get_security_groups_data.py'
+                PythonVersion: "3.9"
+            DefaultArguments: 
+                --class: "GlueApp"
+                --enable-job-insights: "false"
+                --extra-py-files: !Join
+                                    - ''
+                                    - - 's3://'
+                                      - !Ref S3BucketResources
+                                      - '/libraries/'
+                                      - 'boto3-1.27.1-py3-none-any.whl'
+                --job-language: "python"
+            MaxRetries: 1
+            Timeout: 2880
+            GlueVersion: "1.0"
+            MaxCapacity: 0.0625
+
     GlueJob3:
         Type: "AWS::Glue::Job"
         Properties:
             Name: "sg-analysis-flow-logs-parser-ks"
             Description: "Job to parse flow logs and calculate usage"
-            Role: !GetAtt SgaParseFlowLogsGlueJobIAMRole.Arn
+            Role: !GetAtt IAMRole3.Arn
             ExecutionProperty: 
                 MaxConcurrentRuns: 1
             Command: 
@@ -374,96 +324,29 @@ Resources:
             GlueVersion: "1.0"
             MaxCapacity: 1
 
-    SgaGetSgLambdaIAMRole:
-        Type: AWS::IAM::Role
-        Properties:
-          AssumeRolePolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Principal:
-                  Service: lambda.amazonaws.com
-                Action: sts:AssumeRole
-          Path: /
-          ManagedPolicyArns:
-            - !Ref SgaCloudWatchLogsPolicy
-          Policies:
-            - PolicyName: DescribeSecurityGroupsPolicy
-              PolicyDocument:
-                Version: '2012-10-17'
-                Statement:
-                  - Effect: Allow
-                    Action:
-                      - ec2:DescribeSecurityGroups
-                      - ec2:DescribeSecurityGroupReferences
-                      - ec2:DescribeSecurityGroupRules
-                    Resource: "*"
-            - PolicyName: DynamoDBPermissions
-              PolicyDocument:
-                Version: '2012-10-17'
-                Statement:
-                  - Effect: Allow
-                    Action:
-                      - dynamodb:PutItem
-                      - dynamodb:Query
-                    Resource: !GetAtt DynamoTableSGRules.Arn
-
     LambdaGetSG:
       Type: "AWS::Lambda::Function"
+      DependsOn: IAMRole2
       Properties:
-        Role: !GetAtt SgaGetSgLambdaIAMRole.Arn
+        Role: arn:aws:iam::019050653029:role/service-role/SG_Analysis_Lambda_Access_Role_KS
         Handler: lambda_function.lambda_handler
         Environment:
           Variables:
-            DB_TABLE: !Ref DynamoTableSGRules
+            DB_TABLE: sg-analysis-rules-data-ks
         Runtime: python3.10
         Code:
           S3Bucket: security-group-monitoring-test-bucket-resources
           S3Key: GetSGTest-5635c8ba-9036-4b27-a232-ffb9f8874040.zip
-
-    SgaGetEniLambdaIAMRole:
-        Type: AWS::IAM::Role
-        Properties:
-          AssumeRolePolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Principal:
-                  Service: lambda.amazonaws.com
-                Action: sts:AssumeRole
-          Path: /
-          ManagedPolicyArns:
-            - !Ref SgaCloudWatchLogsPolicy
-          Policies:
-            - PolicyName: DescribeSecurityGroupsPolicy
-              PolicyDocument:
-                Version: '2012-10-17'
-                Statement:
-                  - Effect: Allow
-                    Action:
-                      - ec2:DescribeNetworkInterfaces
-                      - ec2:DescribeTags
-                      - ec2:DescribeNetworkAcls
-                      - ec2:DescribeRouteTables
-                    Resource: "*"
-            - PolicyName: DynamoDBPermissions
-              PolicyDocument:
-                Version: '2012-10-17'
-                Statement:
-                  - Effect: Allow
-                    Action:
-                      - dynamodb:PutItem
-                      - dynamodb:Query
-                    Resource: !GetAtt DynamoTablENIAnalysis.Arn
-
+      
     LambdaGetENI:
       Type: "AWS::Lambda::Function"
+      DependsOn: IAMRole2
       Properties:
-        Role: !GetAtt SgaGetEniLambdaIAMRole.Arn
+        Role: arn:aws:iam::019050653029:role/service-role/SG_Analysis_Lambda_Access_Role_KS
         Handler: lambda_function.lambda_handler
         Environment:
           Variables:
-            DB_TABLE: !GetAtt DynamoTablENIAnalysis.Arn
+            DB_TABLE: sg-analysis-interface-details-ks
         Runtime: python3.10
         Code:
           S3Bucket: security-group-monitoring-test-bucket-resources
