@@ -8,20 +8,20 @@ from awsglue.utils import getResolvedOptions
 from datetime import datetime, timedelta, date
 # Follow this article to create Athena table (to be used in query) that can analyze Amazon VPC Flow Logs - https://aws.amazon.com/premiumsupport/knowledge-center/athena-analyze-vpc-flow-logs/
 
-args = getResolvedOptions(sys.argv, 'region', 'database', 'table', 'bucket', 'path')
+args = getResolvedOptions(sys.argv, ['region', 'database', 'table', 'bucket', 'path'])
 
 params = {
     # AWS region to use
-    'region': args.region,
+    'region': args['region'],
     # Name of database in glue
-    'database': args.database,
+    'database': args['database'],
     # Name of table in glue
-    'table': args.table,
+    'table': args['table'],
     # Name of S3 bucket Athena queries go into
-    'bucket': args.bucket,
+    'bucket': args['bucket'],
     # Path to use in bucket - no leading or trailing slash
     # e.g. vpcflowlogs/athena
-    'path': args.path
+    'path': args['path']
 }
 
 date_yst = (date.today() - timedelta(1))
