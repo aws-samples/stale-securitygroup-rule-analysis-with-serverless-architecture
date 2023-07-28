@@ -1,17 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: "Template to create resources for Security Group rules analysis"
 Resources:
-    IAMRole:
-        Type: "AWS::IAM::Role"
-        Properties:
-            Path: "/service-role/"
-            RoleName: "sg-analysis-step-function-role-ks"
-            AssumeRolePolicyDocument: "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"states.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}"
-            MaxSessionDuration: 3600
-            ManagedPolicyArns: 
-              - !Sub "arn:aws:iam::aws:policy/CloudWatchLogsFullAccess"
-              - !Sub "arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole"
-              - !Sub "arn:aws:iam::aws:policy/AWSXrayFullAccess"
 
     SgaCloudWatchLogsPolicy:
         Type: AWS::IAM::ManagedPolicy
@@ -88,39 +77,6 @@ Resources:
                         }
                     ]
                 }
-
-    IAMRole2:
-        Type: "AWS::IAM::Role"
-        Properties:
-            Path: "/service-role/"
-            RoleName: "SG_Analysis_Lambda_Access_Role_KS"
-            AssumeRolePolicyDocument: "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"lambda.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}"
-            MaxSessionDuration: 3600
-            ManagedPolicyArns: 
-              - "arn:aws:iam::aws:policy/AmazonEC2FullAccess"
-              - "arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole"
-              - "arn:aws:iam::aws:policy/AmazonSESFullAccess"
-              - "arn:aws:iam::aws:policy/CloudWatchFullAccess"
-              - "arn:aws:iam::aws:policy/AmazonAthenaFullAccess"
-              - "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
-              - "arn:aws:iam::aws:policy/AmazonS3FullAccess"
-              - "arn:aws:iam::aws:policy/service-role/AWSLambdaRole"
-
-    IAMRole3:
-        Type: "AWS::IAM::Role"
-        Properties:
-            Path: "/service-role/"
-            RoleName: "SG_Analysis_Glue_Access_Role_KS"
-            AssumeRolePolicyDocument: "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"glue.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}"
-            MaxSessionDuration: 3600
-            ManagedPolicyArns: 
-              - "arn:aws:iam::aws:policy/AmazonEC2FullAccess"
-              - "arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole"
-              - "arn:aws:iam::aws:policy/AmazonSESFullAccess"
-              - "arn:aws:iam::aws:policy/CloudWatchFullAccess"
-              - "arn:aws:iam::aws:policy/AmazonAthenaFullAccess"
-              - "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
-              - "arn:aws:iam::aws:policy/AmazonS3FullAccess"
 
     StepFuncLogGroup:
         Type: "AWS::Logs::LogGroup"
@@ -267,7 +223,7 @@ Resources:
                     }
                   }
                 }
-            RoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/service-role/sg-analysis-step-function-role-ks"
+            RoleArn: !GetAtt SgaStepFunctionIAMRole.Arn
             StateMachineType: "STANDARD"
             LoggingConfiguration:
                 Destinations: 
@@ -338,7 +294,7 @@ Resources:
         Type: "AWS::Glue::Job"
         Properties:
             Description: "Job to run Athena query on VPC Flow logs and save to S3"
-            Role: !GetAtt IAMRole3.Arn
+            Role: !GetAtt SgaStartAthenaQueryGlueJobIAMRole.Arn
             ExecutionProperty: 
                 MaxConcurrentRuns: 1
             Command: 
@@ -431,7 +387,7 @@ Resources:
         Type: "AWS::Glue::Job"
         Properties:
             Description: "Job to parse flow logs and calculate usage"
-            Role: !GetAtt IAMRole3.Arn
+            Role: !GetAtt SgaParseFlowLogsGlueJobIAMRole.Arn
             ExecutionProperty: 
                 MaxConcurrentRuns: 1
             Command: 
@@ -494,13 +450,12 @@ Resources:
 
     SgaGetSgLambda:
       Type: "AWS::Lambda::Function"
-      DependsOn: IAMRole2
       Properties:
-        Role: arn:aws:iam::019050653029:role/service-role/SG_Analysis_Lambda_Access_Role_KS
+        Role: !GetAtt SgaGetSgLambdaIAMRole.Arn
         Handler: lambda_function.lambda_handler
         Environment:
           Variables:
-            DB_TABLE: sg_analysis_rules_data_ks
+            DB_TABLE: !Ref DynamoTableSGRules
         Runtime: python3.10
         Timeout: 300
         Code:
@@ -544,9 +499,8 @@ Resources:
 
     SgaGetEniLambda:
       Type: "AWS::Lambda::Function"
-      DependsOn: IAMRole2
       Properties:
-        Role: arn:aws:iam::019050653029:role/service-role/SG_Analysis_Lambda_Access_Role_KS
+        Role: !GetAtt SgaGetEniLambdaIAMRole.Arn
         Handler: lambda_function.lambda_handler
         Environment:
           Variables:
