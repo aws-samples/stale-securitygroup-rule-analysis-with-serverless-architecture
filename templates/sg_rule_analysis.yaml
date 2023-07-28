@@ -1,9 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: "Template to create resources for Security Group rules analysis"
-Parameters:
-  quicksightUserArn:
-    Type: String
-    Default: ""
 Resources:
 
     SgaCloudWatchLogsPolicy:
@@ -20,7 +16,6 @@ Resources:
                 Resource: "*"
           Description: Managed policy for CloudWatch Logs for use with the Security Group Analysis Solution
           Path: "/"
-          ManagedPolicyName: SgaCloudWatchLogsPolicy
     
     SgaStepFunctionIAMRole:
         Type: AWS::IAM::Role
@@ -45,13 +40,27 @@ Resources:
                     Action:
                       - lambda:InvokeFunction
                     Resource:
-                      - !GetAtt LambdaGetSG.Arn
-                      - !GetAtt LambdaGetENI.Arn
-    
+                      - !GetAtt SgaGetSgLambda.Arn
+                      - !GetAtt SgaGetEniLambda.Arn
+            - PolicyName: SgaSfCwlStepFunctions
+              PolicyDocument:
+                Version: '2012-10-17'
+                Statement:
+                  - Effect: Allow
+                    Action:
+                      - logs:CreateLogDelivery
+                      - logs:GetLogDelivery
+                      - logs:UpdateLogDelivery
+                      - logs:DeleteLogDelivery
+                      - logs:ListLogDeliveries
+                      - logs:PutResourcePolicy
+                      - logs:DescribeResourcePolicies
+                      - logs:DescribeLogGroups
+                    Resource: "*"
+
     IAMManagedPolicy:
         Type: "AWS::IAM::ManagedPolicy"
         Properties:
-            ManagedPolicyName: "SG_Analysis_Amazon_EventBridge_Invoke_Step_Functions_KS"
             Path: "/service-role/"
             PolicyDocument: !Sub |
                 {
@@ -77,7 +86,6 @@ Resources:
     DynamoTableSGRules:
         Type: "AWS::DynamoDB::Table"
         Properties:
-          TableName: sg-analysis-rules-data-ks
           GlobalSecondaryIndexes:
             - IndexName: groups
               KeySchema:
@@ -103,7 +111,6 @@ Resources:
     DynamoTableSGAnalysis:
         Type: "AWS::DynamoDB::Table"
         Properties:
-          TableName: sg-analysis-rules-usage-ks
           GlobalSecondaryIndexes:
             - IndexName: protocol
               KeySchema:
@@ -130,10 +137,9 @@ Resources:
             ReadCapacityUnits: 5
             WriteCapacityUnits: 5
       
-    DynamoTablENIAnalysis:
+    DynamoTableENIAnalysis:
         Type: "AWS::DynamoDB::Table"
         Properties:
-          TableName: sg-analysis-interface-details-ks
           AttributeDefinitions:
             - AttributeName: id
               AttributeType: S
@@ -144,47 +150,66 @@ Resources:
             ReadCapacityUnits: 5
             WriteCapacityUnits: 5
 
-    S3BucketAthena:
-      Type: "AWS::S3::Bucket"
-      # DeletionPolicy: Retain
-      Properties:
-        BucketName: security-group-monitoring-test-bucket-athena-ks
-
-    S3BucketFlowlogs:
-      Type: "AWS::S3::Bucket"
-      # DeletionPolicy: Retain
-      Properties:
-        BucketName: security-group-monitoring-test-bucket-flowlogs-ks
-
-    S3BucketResources:
-      Type: "AWS::S3::Bucket"
-      # DeletionPolicy: Retain
-      Properties:
-        BucketName: security-group-monitoring-test-bucket-resources-ks
-
-
     StepFunctionsStateMachine:
         Type: "AWS::StepFunctions::StateMachine"
         Properties:
             StateMachineName: !Ref EventsRule
-            DefinitionString: |
+            DefinitionString: !Sub |
                 {
                   "Comment": "A description of my state machine",
-                  "StartAt": "Glue GetSGRulesData",
+                  "StartAt": "Lambda GetSG",
                   "States": {
-                    "Glue GetSGRulesData": {
+                    "Lambda GetSG": {
                       "Type": "Task",
-                      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+                      "Resource": "arn:aws:states:::lambda:invoke",
+                      "OutputPath": "$.Payload",
                       "Parameters": {
-                        "JobName": "sg-analysis-get-rules-data-ks"
+                        "Payload.$": "$",
+                        "FunctionName": "${SgaGetSgLambda.Arn}"
                       },
+                      "Retry": [
+                        {
+                          "ErrorEquals": [
+                            "Lambda.ServiceException",
+                            "Lambda.AWSLambdaException",
+                            "Lambda.SdkClientException",
+                            "Lambda.TooManyRequestsException"
+                          ],
+                          "IntervalSeconds": 2,
+                          "MaxAttempts": 6,
+                          "BackoffRate": 2
+                        }
+                      ],
+                      "Next": "Lambda GetEni"
+                    },
+                    "Lambda GetEni": {
+                      "Type": "Task",
+                      "Resource": "arn:aws:states:::lambda:invoke",
+                      "OutputPath": "$.Payload",
+                      "Parameters": {
+                        "Payload.$": "$",
+                        "FunctionName": "${SgaGetEniLambda.Arn}"
+                      },
+                      "Retry": [
+                        {
+                          "ErrorEquals": [
+                            "Lambda.ServiceException",
+                            "Lambda.AWSLambdaException",
+                            "Lambda.SdkClientException",
+                            "Lambda.TooManyRequestsException"
+                          ],
+                          "IntervalSeconds": 2,
+                          "MaxAttempts": 6,
+                          "BackoffRate": 2
+                        }
+                      ],
                       "Next": "Glue QueryVPCFlowLogsSaveToS3"
                     },
                     "Glue QueryVPCFlowLogsSaveToS3": {
                       "Type": "Task",
                       "Resource": "arn:aws:states:::glue:startJobRun.sync",
                       "Parameters": {
-                        "JobName": "sg-analysis-run-athena-query-ks"
+                        "JobName": "${SgaStartAthenaQueryGlueJob}"
                       },
                       "Next": "Glue ParseVPCFLowLogsSaveUsageCount"
                     },
@@ -192,7 +217,7 @@ Resources:
                       "Type": "Task",
                       "Resource": "arn:aws:states:::glue:startJobRun.sync",
                       "Parameters": {
-                        "JobName": "sg-analysis-flow-logs-parser-ks"
+                        "JobName": "${SgaParseFlowLogsGlueJob}"
                       },
                       "End": true
                     }
@@ -254,15 +279,20 @@ Resources:
                       - s3:HeadObject
                       - s3:List*
                     Resource:
-                      - arn:aws:s3:::security-group-monitoring-test-res-bucket
-                      - arn:aws:s3:::security-group-monitoring-test-res-bucket/*
-                      - arn:aws:s3:::security-group-monitoring-test-bucket-athena
-                      - arn:aws:s3:::security-group-monitoring-test-bucket-athena/*
+                      - !ImportValue sga-resources-bucket-arn
+                      - !Join
+                          - ''
+                          - - !ImportValue sga-resources-bucket-arn
+                            - "/*"
+                      - !ImportValue sga-athena-bucket-arn
+                      - !Join
+                          - ''
+                          - - !ImportValue sga-athena-bucket-arn
+                            - "/*"
 
-    GlueJob1:
+    SgaStartAthenaQueryGlueJob:
         Type: "AWS::Glue::Job"
         Properties:
-            Name: "sg-analysis-run-athena-query-ks"
             Description: "Job to run Athena query on VPC Flow logs and save to S3"
             Role: !GetAtt SgaStartAthenaQueryGlueJobIAMRole.Arn
             ExecutionProperty: 
@@ -272,7 +302,7 @@ Resources:
                 ScriptLocation: !Join
                                     - ''
                                     - - 's3://'
-                                      - !Ref S3BucketResources
+                                      - !ImportValue sga-resources-bucket-ref
                                       - '/scripts/'
                                       - 'query_athena.py'
                 PythonVersion: "3.9"
@@ -280,7 +310,7 @@ Resources:
                 --TempDir: !Join
                                 - ''
                                 - - 's3://'
-                                  - !Ref S3BucketResources
+                                  - !ImportValue sga-resources-bucket-ref
                                   - '/temporary/'
                 --class: "GlueApp"
                 --enable-glue-datacatalog: "true"
@@ -316,10 +346,16 @@ Resources:
                           - s3:HeadObject
                           - s3:List*
                         Resource:
-                          - arn:aws:s3:::security-group-monitoring-test-res-bucket
-                          - arn:aws:s3:::security-group-monitoring-test-res-bucket/*
-                          - arn:aws:s3:::security-group-monitoring-test-bucket-athena
-                          - arn:aws:s3:::security-group-monitoring-test-bucket-athena/*
+                          - !ImportValue sga-resources-bucket-arn
+                          - !Join
+                              - ''
+                              - - !ImportValue sga-resources-bucket-arn
+                                - "/*"
+                          - !ImportValue sga-athena-bucket-arn
+                          - !Join
+                              - ''
+                              - - !ImportValue sga-athena-bucket-arn
+                                - "/*"
               - PolicyName: GlueJobDynamoDBPolicy
                 PolicyDocument:
                   Version: '2012-10-17'
@@ -330,7 +366,7 @@ Resources:
                         - dynamodb:GetItem
                       Resource:
                         - !GetAtt DynamoTableSGRules.Arn
-                        - !GetAtt DynamoTablENIAnalysis.Arn
+                        - !GetAtt DynamoTableENIAnalysis.Arn
               - PolicyName: GlueJobDynamoDBReadWritePolicy
                 PolicyDocument:
                   Version: '2012-10-17'
@@ -342,10 +378,9 @@ Resources:
                         - dynamodb:UpdateItem
                       Resource: !GetAtt DynamoTableSGAnalysis.Arn
     
-    GlueJob3:
+    SgaParseFlowLogsGlueJob:
         Type: "AWS::Glue::Job"
         Properties:
-            Name: "sg-analysis-flow-logs-parser-ks"
             Description: "Job to parse flow logs and calculate usage"
             Role: !GetAtt SgaParseFlowLogsGlueJobIAMRole.Arn
             ExecutionProperty: 
@@ -355,7 +390,7 @@ Resources:
                 ScriptLocation: !Join
                                     - ''
                                     - - 's3://'
-                                      - !Ref S3BucketResources
+                                      - !ImportValue sga-resources-bucket-ref
                                       - '/scripts/'
                                       - 'flow_logs_parser.py'
                 PythonVersion: "3.9"
@@ -365,7 +400,7 @@ Resources:
                 --extra-py-files: !Join
                                     - ''
                                     - - 's3://'
-                                      - !Ref S3BucketResources
+                                      - !ImportValue sga-resources-bucket-ref
                                       - '/libraries/'
                                       - 'awswrangler-2.14.0-py3-none-any.whl'
                 --job-language: "python"
@@ -408,7 +443,7 @@ Resources:
                       - dynamodb:Query
                     Resource: !GetAtt DynamoTableSGRules.Arn
 
-    LambdaGetSG:
+    SgaGetSgLambda:
       Type: "AWS::Lambda::Function"
       Properties:
         Role: !GetAtt SgaGetSgLambdaIAMRole.Arn
@@ -417,8 +452,9 @@ Resources:
           Variables:
             DB_TABLE: !Ref DynamoTableSGRules
         Runtime: python3.10
+        Timeout: 300
         Code:
-          S3Bucket: security-group-monitoring-test-bucket-resources
+          S3Bucket: !ImportValue sga-resources-bucket-ref
           S3Key: GetSGTest-5635c8ba-9036-4b27-a232-ffb9f8874040.zip
 
     SgaGetEniLambdaIAMRole:
@@ -454,17 +490,18 @@ Resources:
                     Action:
                       - dynamodb:PutItem
                       - dynamodb:Query
-                    Resource: !GetAtt DynamoTablENIAnalysis.Arn
+                    Resource: !GetAtt DynamoTableENIAnalysis.Arn
 
-    LambdaGetENI:
+    SgaGetEniLambda:
       Type: "AWS::Lambda::Function"
       Properties:
         Role: !GetAtt SgaGetEniLambdaIAMRole.Arn
         Handler: lambda_function.lambda_handler
         Environment:
           Variables:
-            DB_TABLE: !GetAtt DynamoTablENIAnalysis.Arn
+            DB_TABLE: !Ref DynamoTableENIAnalysis
         Runtime: python3.10
+        Timeout: 300
         Code:
-          S3Bucket: security-group-monitoring-test-bucket-resources
+          S3Bucket: !ImportValue sga-resources-bucket-ref
           S3Key: GetENITest-787e5a66-3dc8-4c70-b8a6-f9e4ba4761d5.zip
