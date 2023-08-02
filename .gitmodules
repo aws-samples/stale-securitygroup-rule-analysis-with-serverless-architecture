@@ -1,0 +1,3 @@
+[submodule "aws_network"]
+	path = aws_network
+	url = git@github.com:Baza-86/aws_network.git
