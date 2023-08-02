@@ -22,3 +22,10 @@ See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more inform
 
 This library is licensed under the MIT-0 License. See the LICENSE file.
 
+## Git Submodules
+This repoistory contains submodules linking to the aws_network code. Use the commands below to configure:
+``git submodule init``
+``git submodule update``
+
+You can also checkout to different branches within the aws_network folder for Development purposes
+
