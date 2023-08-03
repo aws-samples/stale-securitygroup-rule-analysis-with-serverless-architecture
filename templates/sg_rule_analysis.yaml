@@ -456,11 +456,13 @@ Resources:
         Environment:
           Variables:
             DB_TABLE: !Ref DynamoTableSGRules
+            # Define ROLE_ARN here if you want to assume another account e.g. `ARN_ROLE: arn:aws:iam::<AccountNo>:role/<Role>`
+            ARN_ROLE: arn:aws:iam::019050653029:role/security-group-monitoring-lambda-get-sg-role
         Runtime: python3.10
         Timeout: 300
         Code:
           S3Bucket: !ImportValue sga-resources-bucket-ref
-          S3Key: GetSGTest-5635c8ba-9036-4b27-a232-ffb9f8874040.zip
+          S3Key: KS-Test-SgaGetSgLambda-xOyC3kFGzLZ6-619f0529-fc1f-4909-b59d-810b02dc0d85.zip
 
     SgaGetEniLambdaIAMRole:
         Type: AWS::IAM::Role
@@ -505,8 +507,10 @@ Resources:
         Environment:
           Variables:
             DB_TABLE: !Ref DynamoTableENIAnalysis
+            # Define ROLE_ARN here if you want to assume another account e.g. `ARN_ROLE: arn:aws:iam::<AccountNo>:role/<Role>`
+            ARN_ROLE: arn:aws:iam::019050653029:role/security-group-monitoring-lambda-get-sg-role
         Runtime: python3.10
         Timeout: 300
         Code:
           S3Bucket: !ImportValue sga-resources-bucket-ref
-          S3Key: GetENITest-787e5a66-3dc8-4c70-b8a6-f9e4ba4761d5.zip
+          S3Key: KS-Test-SgaGetEniLambda-x0dM2gkaKrK8-eaee5dff-eed7-4678-8dc6-33af053940be.zip
