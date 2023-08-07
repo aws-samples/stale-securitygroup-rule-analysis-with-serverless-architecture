@@ -80,8 +80,8 @@ def insert_usage_data(sg_rule_id, sg_id, flow_dir, protocol, addr, dstport):
     try:
         checkRuleIdExists=dynamodb.query(
             TableName=dynamodb_tbl_name,
-            KeyConditionExpression="sg_rule_id = :sg_rule_id",
-            ExpressionAttributeValues={':sg_rule_id':{'S':hash_digest}}
+            KeyConditionExpression="sgr_flow_hash = :sgr_flow_hash",
+            ExpressionAttributeValues={':sgr_flow_hash':{'S':hash_digest}}
         )
         if checkRuleIdExists['Count'] == 0:
             insertItemResponse = dynamodb.put_item(
