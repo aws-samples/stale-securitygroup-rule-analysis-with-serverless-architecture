@@ -75,7 +75,7 @@ def get_sg_rule_id(sg_id, protocol, flow_dir, srcaddr, srcport, dstaddr, dstport
         print("There was an error while trying to perform DynamoDB get operation on Rules table: "+str(e))
     
 def insert_usage_data(sg_rule_id, sg_id, flow_dir, protocol, addr, dstport):
-    addr_rule_hash = [sg_rule_id,addr,dstport]
+    addr_rule_hash = [sg_rule_id,addr,dstport,protocol]
     hash_digest = sha1(str(addr_rule_hash).encode()).hexdigest()
     try:
         checkRuleIdExists=dynamodb.query(
@@ -87,7 +87,7 @@ def insert_usage_data(sg_rule_id, sg_id, flow_dir, protocol, addr, dstport):
             insertItemResponse = dynamodb.put_item(
               TableName=dynamodb_tbl_name,
               Item={
-                    'sg_rule_id': {'S':str(hash_digest)},
+                    'sgr_flow_hash': {'S':str(hash_digest)},
                     'rule_id': {'S':sg_rule_id},
                     'sg_id': {'S':str(sg_id)},
                     'flow_direction': {'S':str(flow_dir)},
@@ -102,7 +102,7 @@ def insert_usage_data(sg_rule_id, sg_id, flow_dir, protocol, addr, dstport):
             updateItemResponse = dynamodb.update_item(
                 TableName=dynamodb_tbl_name,
                 Key={
-                  'sg_rule_id': {'S': str(hash_digest)},
+                  'sgr_flow_hash': {'S': str(hash_digest)},
                 },
                 UpdateExpression='SET used_times = used_times + :val, sg_rule_last_used = :newlastused',
                 ExpressionAttributeValues={
