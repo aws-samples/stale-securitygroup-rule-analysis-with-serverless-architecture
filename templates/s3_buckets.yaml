@@ -1,0 +1,29 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Security Group Analysis S3 Buckets"
+Resources:
+
+    SgaS3BucketAthena:
+      Type: "AWS::S3::Bucket"
+      # DeletionPolicy: Retain
+
+    SgaS3BucketResources:
+      Type: "AWS::S3::Bucket"
+      # DeletionPolicy: Retain
+
+Outputs:
+  ResourcesBucketArn:
+    Value: !GetAtt SgaS3BucketResources.Arn
+    Export:
+      Name: sga-resources-bucket-arn
+  AthenaBucketArn:
+    Value: !GetAtt SgaS3BucketAthena.Arn
+    Export:
+      Name: sga-athena-bucket-arn
+  ResourcesBucketRef:
+    Value: !Ref SgaS3BucketResources
+    Export:
+      Name: sga-resources-bucket-ref
+  AthenaBucketRef:
+    Value: !Ref SgaS3BucketAthena
+    Export:
+      Name: sga-athena-bucket-ref

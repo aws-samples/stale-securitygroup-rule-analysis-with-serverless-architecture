@@ -1,26 +1,66 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: "Template to create resources for Security Group rules analysis"
-Parameters:
-  quicksightUserArn:
-    Type: String
-    Default: ""
 Resources:
-    IAMRole:
-        Type: "AWS::IAM::Role"
+
+    SgaCloudWatchLogsPolicy:
+        Type: AWS::IAM::ManagedPolicy
         Properties:
-            Path: "/service-role/"
-            RoleName: "sg-analysis-step-function-role"
-            AssumeRolePolicyDocument: "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"states.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}"
-            MaxSessionDuration: 3600
-            ManagedPolicyArns: 
-              - !Sub "arn:aws:iam::aws:policy/CloudWatchLogsFullAccess"
-              - !Sub "arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole"
-              - !Sub "arn:aws:iam::aws:policy/AWSXrayFullAccess"
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "*"
+          Description: Managed policy for CloudWatch Logs for use with the Security Group Analysis Solution
+          Path: "/"
+    
+    SgaStepFunctionIAMRole:
+        Type: AWS::IAM::Role
+        Properties:
+          AssumeRolePolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Principal:
+                  Service: states.amazonaws.com
+                Action: sts:AssumeRole
+          Path: /
+          ManagedPolicyArns:
+            - arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole
+            - !Ref SgaCloudWatchLogsPolicy
+          Policies:
+            - PolicyName: SgaSfLambdaInvokePolicy
+              PolicyDocument:
+                Version: '2012-10-17'
+                Statement:
+                  - Effect: Allow
+                    Action:
+                      - lambda:InvokeFunction
+                    Resource:
+                      - !GetAtt SgaGetSgLambda.Arn
+                      - !GetAtt SgaGetEniLambda.Arn
+            - PolicyName: SgaSfCwlStepFunctions
+              PolicyDocument:
+                Version: '2012-10-17'
+                Statement:
+                  - Effect: Allow
+                    Action:
+                      - logs:CreateLogDelivery
+                      - logs:GetLogDelivery
+                      - logs:UpdateLogDelivery
+                      - logs:DeleteLogDelivery
+                      - logs:ListLogDeliveries
+                      - logs:PutResourcePolicy
+                      - logs:DescribeResourcePolicies
+                      - logs:DescribeLogGroups
+                    Resource: "*"
 
     IAMManagedPolicy:
         Type: "AWS::IAM::ManagedPolicy"
         Properties:
-            ManagedPolicyName: "SG_Analysis_Amazon_EventBridge_Invoke_Step_Functions"
             Path: "/service-role/"
             PolicyDocument: !Sub |
                 {
@@ -38,41 +78,32 @@ Resources:
                     ]
                 }
 
-    IAMRole2:
-        Type: "AWS::IAM::Role"
-        Properties:
-            Path: "/service-role/"
-            RoleName: "SG_Analysis_Glue_Access_Role"
-            AssumeRolePolicyDocument: "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"glue.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}"
-            MaxSessionDuration: 3600
-            ManagedPolicyArns: 
-              - "arn:aws:iam::aws:policy/AmazonEC2FullAccess"
-              - "arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole"
-              - "arn:aws:iam::aws:policy/AmazonSESFullAccess"
-              - "arn:aws:iam::aws:policy/CloudWatchFullAccess"
-              - "arn:aws:iam::aws:policy/AmazonAthenaFullAccess"
-              - "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
-              - "arn:aws:iam::aws:policy/AmazonS3FullAccess"
-
     StepFuncLogGroup:
         Type: "AWS::Logs::LogGroup"
         Properties:
-            LogGroupName: "/aws/vendedlogs/states/sg-analysis-step-function-logs"
+            LogGroupName: "/aws/vendedlogs/states/sg-analysis-step-function-logs_KS"
 
     DynamoTableSGRules:
         Type: "AWS::DynamoDB::Table"
         Properties:
-          TableName: sg-analysis-rules-data
+          GlobalSecondaryIndexes:
+            - IndexName: groups
+              KeySchema:
+              - AttributeName: group_id
+                KeyType: HASH 
+              Projection:
+                ProjectionType: ALL
+              ProvisionedThroughput:
+                ReadCapacityUnits: 5
+                WriteCapacityUnits: 5
           AttributeDefinitions:
-            - AttributeName: sg_rule_id
+            - AttributeName: id
               AttributeType: S
-            - AttributeName: security_group_id
+            - AttributeName: group_id
               AttributeType: S
           KeySchema:
-            - AttributeName: sg_rule_id
+            - AttributeName: id
               KeyType: HASH
-            - AttributeName: security_group_id
-              KeyType: RANGE
           ProvisionedThroughput:
             ReadCapacityUnits: 5
             WriteCapacityUnits: 5
@@ -80,7 +111,6 @@ Resources:
     DynamoTableSGAnalysis:
         Type: "AWS::DynamoDB::Table"
         Properties:
-          TableName: sg-analysis-rules-usage
           GlobalSecondaryIndexes:
             - IndexName: protocol
               KeySchema:
@@ -94,60 +124,92 @@ Resources:
                 ReadCapacityUnits: 5
                 WriteCapacityUnits: 5
           AttributeDefinitions:
-            - AttributeName: sg_rule_id
+            - AttributeName: sgr_flow_hash
               AttributeType: S
             - AttributeName: sg_id
               AttributeType: S
             - AttributeName: protocol
               AttributeType: S
           KeySchema:
-            - AttributeName: sg_rule_id
+            - AttributeName: sgr_flow_hash
+              KeyType: HASH
+          ProvisionedThroughput:
+            ReadCapacityUnits: 5
+            WriteCapacityUnits: 5
+      
+    DynamoTableENIAnalysis:
+        Type: "AWS::DynamoDB::Table"
+        Properties:
+          AttributeDefinitions:
+            - AttributeName: id
+              AttributeType: S
+          KeySchema:
+            - AttributeName: id
               KeyType: HASH
           ProvisionedThroughput:
             ReadCapacityUnits: 5
             WriteCapacityUnits: 5
 
-    S3BucketAthena:
-      Type: "AWS::S3::Bucket"
-      DeletionPolicy: Retain
-      Properties:
-        BucketName: security-group-monitoring-test-bucket-athena
-
-    S3BucketFlowlogs:
-      Type: "AWS::S3::Bucket"
-      DeletionPolicy: Retain
-      Properties:
-        BucketName: security-group-monitoring-test-bucket-flowlogs
-
-    S3BucketResources:
-      Type: "AWS::S3::Bucket"
-      DeletionPolicy: Retain
-      Properties:
-        BucketName: security-group-monitoring-test-bucket-resources
-
-
     StepFunctionsStateMachine:
         Type: "AWS::StepFunctions::StateMachine"
         Properties:
             StateMachineName: !Ref EventsRule
-            DefinitionString: |
+            DefinitionString: !Sub |
                 {
                   "Comment": "A description of my state machine",
-                  "StartAt": "Glue GetSGRulesData",
+                  "StartAt": "Lambda GetSG",
                   "States": {
-                    "Glue GetSGRulesData": {
+                    "Lambda GetSG": {
                       "Type": "Task",
-                      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+                      "Resource": "arn:aws:states:::lambda:invoke",
+                      "OutputPath": "$.Payload",
                       "Parameters": {
-                        "JobName": "sg-analysis-get-rules-data"
+                        "Payload.$": "$",
+                        "FunctionName": "${SgaGetSgLambda.Arn}"
                       },
+                      "Retry": [
+                        {
+                          "ErrorEquals": [
+                            "Lambda.ServiceException",
+                            "Lambda.AWSLambdaException",
+                            "Lambda.SdkClientException",
+                            "Lambda.TooManyRequestsException"
+                          ],
+                          "IntervalSeconds": 2,
+                          "MaxAttempts": 6,
+                          "BackoffRate": 2
+                        }
+                      ],
+                      "Next": "Lambda GetEni"
+                    },
+                    "Lambda GetEni": {
+                      "Type": "Task",
+                      "Resource": "arn:aws:states:::lambda:invoke",
+                      "OutputPath": "$.Payload",
+                      "Parameters": {
+                        "Payload.$": "$",
+                        "FunctionName": "${SgaGetEniLambda.Arn}"
+                      },
+                      "Retry": [
+                        {
+                          "ErrorEquals": [
+                            "Lambda.ServiceException",
+                            "Lambda.AWSLambdaException",
+                            "Lambda.SdkClientException",
+                            "Lambda.TooManyRequestsException"
+                          ],
+                          "IntervalSeconds": 2,
+                          "MaxAttempts": 6,
+                          "BackoffRate": 2
+                        }
+                      ],
                       "Next": "Glue QueryVPCFlowLogsSaveToS3"
                     },
                     "Glue QueryVPCFlowLogsSaveToS3": {
                       "Type": "Task",
                       "Resource": "arn:aws:states:::glue:startJobRun.sync",
                       "Parameters": {
-                        "JobName": "sg-analysis-run-athena-query"
+                        "JobName": "${SgaStartAthenaQueryGlueJob}"
                       },
                       "Next": "Glue ParseVPCFLowLogsSaveUsageCount"
                     },
@@ -155,13 +217,13 @@ Resources:
                       "Type": "Task",
                       "Resource": "arn:aws:states:::glue:startJobRun.sync",
                       "Parameters": {
-                        "JobName": "sg-analysis-flow-logs-parser"
+                        "JobName": "${SgaParseFlowLogsGlueJob}"
                       },
                       "End": true
                     }
                   }
                 }
-            RoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/service-role/sg-analysis-step-function-role"
+            RoleArn: !GetAtt SgaStepFunctionIAMRole.Arn
             StateMachineType: "STANDARD"
             LoggingConfiguration:
                 Destinations: 
@@ -173,7 +235,7 @@ Resources:
     EventsRule:
         Type: "AWS::Events::Rule"
         Properties:
-            Name: "sg-analysis-step-function"
+            Name: "sg-analysis-step-function-ks"
             ScheduleExpression: "cron(0 9 * * ? *)"
             State: "DISABLED"
             Targets: 
@@ -183,12 +245,56 @@ Resources:
                 RoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/service-role/SG_Analysis_Amazon_EventBridge_Invoke_Step_Functions"
             EventBusName: "default"
 
-    GlueJob1:
+    SgaStartAthenaQueryGlueJobIAMRole:
+        Type: AWS::IAM::Role
+        Properties:
+          AssumeRolePolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Principal:
+                  Service: glue.amazonaws.com
+                Action: sts:AssumeRole
+          Path: /
+          ManagedPolicyArns:
+            - !Ref SgaCloudWatchLogsPolicy
+          Policies:
+            - PolicyName: GlueJobPolicy
+              PolicyDocument:
+                Version: '2012-10-17'
+                Statement:
+                  - Effect: Allow
+                    Action:
+                      - athena:StartQueryExecution
+                      - athena:GetQueryExecution
+                      - athena:GetQueryResults
+                    Resource: "*"
+            - PolicyName: GlueJobS3Access
+              PolicyDocument:
+                Version: '2012-10-17'
+                Statement:
+                  - Effect: Allow
+                    Action:
+                      - s3:Get*
+                      - s3:HeadObject
+                      - s3:List*
+                    Resource:
+                      - !ImportValue sga-resources-bucket-arn
+                      - !Join
+                          - ''
+                          - - !ImportValue sga-resources-bucket-arn
+                            - "/*"
+                      - !ImportValue sga-athena-bucket-arn
+                      - !Join
+                          - ''
+                          - - !ImportValue sga-athena-bucket-arn
+                            - "/*"
+
+    SgaStartAthenaQueryGlueJob:
         Type: "AWS::Glue::Job"
         Properties:
-            Name: "sg-analysis-run-athena-query"
             Description: "Job to run Athena query on VPC Flow logs and save to S3"
-            Role: !GetAtt IAMRole2.Arn
+            Role: !GetAtt SgaStartAthenaQueryGlueJobIAMRole.Arn
             ExecutionProperty: 
                 MaxConcurrentRuns: 1
             Command: 
@@ -196,7 +302,7 @@ Resources:
                 ScriptLocation: !Join
                                     - ''
                                     - - 's3://'
-                                      - !Ref S3BucketResources
+                                      - !ImportValue sga-resources-bucket-ref
                                       - '/scripts/'
                                       - 'query_athena.py'
                 PythonVersion: "3.9"
@@ -204,7 +310,7 @@ Resources:
                 --TempDir: !Join
                                 - ''
                                 - - 's3://'
-                                  - !Ref S3BucketResources
+                                  - !ImportValue sga-resources-bucket-ref
                                   - '/temporary/'
                 --class: "GlueApp"
                 --enable-glue-datacatalog: "true"
@@ -216,44 +322,67 @@ Resources:
             GlueVersion: "1.0"
             MaxCapacity: 0.0625
 
-    GlueJob2:
+    SgaParseFlowLogsGlueJobIAMRole:
+        Type: AWS::IAM::Role
+        Properties:
+          AssumeRolePolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Principal:
+                  Service: glue.amazonaws.com
+                Action: sts:AssumeRole
+          Path: /
+          ManagedPolicyArns:
+            - !Ref SgaCloudWatchLogsPolicy
+          Policies:
+              - PolicyName: GlueJobS3Access
+                PolicyDocument:
+                    Version: '2012-10-17'
+                    Statement:
+                      - Effect: Allow
+                        Action:
+                          - s3:Get*
+                          - s3:HeadObject
+                          - s3:List*
+                        Resource:
+                          - !ImportValue sga-resources-bucket-arn
+                          - !Join
+                              - ''
+                              - - !ImportValue sga-resources-bucket-arn
+                                - "/*"
+                          - !ImportValue sga-athena-bucket-arn
+                          - !Join
+                              - ''
+                              - - !ImportValue sga-athena-bucket-arn
+                                - "/*"
+              - PolicyName: GlueJobDynamoDBPolicy
+                PolicyDocument:
+                  Version: '2012-10-17'
+                  Statement:
+                    - Effect: Allow
+                      Action:
+                        - dynamodb:Query
+                        - dynamodb:GetItem
+                      Resource:
+                        - !GetAtt DynamoTableSGRules.Arn
+                        - !GetAtt DynamoTableENIAnalysis.Arn
+              - PolicyName: GlueJobDynamoDBReadWritePolicy
+                PolicyDocument:
+                  Version: '2012-10-17'
+                  Statement:
+                    - Effect: Allow
+                      Action:
+                        - dynamodb:PutItem
+                        - dynamodb:GetItem
+                        - dynamodb:UpdateItem
+                      Resource: !GetAtt DynamoTableSGAnalysis.Arn
+    
+    SgaParseFlowLogsGlueJob:
         Type: "AWS::Glue::Job"
         Properties:
-            Name: "sg-analysis-get-rules-data"
-            Description: "Job to get Security Group rules information"
-            Role: !GetAtt IAMRole2.Arn
-            ExecutionProperty: 
-                MaxConcurrentRuns: 1
-            Command: 
-                Name: "pythonshell"
-                ScriptLocation: !Join
-                                    - ''
-                                    - - 's3://'
-                                      - !Ref S3BucketResources
-                                      - '/scripts/'
-                                      - 'get_security_groups_data.py'
-                PythonVersion: "3.9"
-            DefaultArguments: 
-                --class: "GlueApp"
-                --enable-job-insights: "false"
-                --extra-py-files: !Join
-                                    - ''
-                                    - - 's3://'
-                                      - !Ref S3BucketResources
-                                      - '/libraries/'
-                                      - 'boto3-1.27.1-py3-none-any.whl'
-                --job-language: "python"
-            MaxRetries: 1
-            Timeout: 2880
-            GlueVersion: "1.0"
-            MaxCapacity: 0.0625
-
-    GlueJob3:
-        Type: "AWS::Glue::Job"
-        Properties:
-            Name: "sg-analysis-flow-logs-parser"
             Description: "Job to parse flow logs and calculate usage"
-            Role: !GetAtt IAMRole2.Arn
+            Role: !GetAtt SgaParseFlowLogsGlueJobIAMRole.Arn
             ExecutionProperty: 
                 MaxConcurrentRuns: 1
             Command: 
@@ -261,7 +390,7 @@ Resources:
                 ScriptLocation: !Join
                                     - ''
                                     - - 's3://'
-                                      - !Ref S3BucketResources
+                                      - !ImportValue sga-resources-bucket-ref
                                       - '/scripts/'
                                       - 'flow_logs_parser.py'
                 PythonVersion: "3.9"
@@ -271,7 +400,7 @@ Resources:
                 --extra-py-files: !Join
                                     - ''
                                     - - 's3://'
-                                      - !Ref S3BucketResources
+                                      - !ImportValue sga-resources-bucket-ref
                                       - '/libraries/'
                                       - 'awswrangler-2.14.0-py3-none-any.whl'
                 --job-language: "python"
@@ -279,3 +408,100 @@ Resources:
             Timeout: 2880
             GlueVersion: "1.0"
             MaxCapacity: 1
+
+    SgaGetSgLambdaIAMRole:
+        Type: AWS::IAM::Role
+        Properties:
+          AssumeRolePolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Principal:
+                  Service: lambda.amazonaws.com
+                Action: sts:AssumeRole
+          Path: /
+          ManagedPolicyArns:
+            - !Ref SgaCloudWatchLogsPolicy
+          Policies:
+            - PolicyName: DescribeSecurityGroupsPolicy
+              PolicyDocument:
+                Version: '2012-10-17'
+                Statement:
+                  - Effect: Allow
+                    Action:
+                      - ec2:DescribeSecurityGroups
+                      - ec2:DescribeSecurityGroupReferences
+                      - ec2:DescribeSecurityGroupRules
+                    Resource: "*"
+            - PolicyName: DynamoDBPermissions
+              PolicyDocument:
+                Version: '2012-10-17'
+                Statement:
+                  - Effect: Allow
+                    Action:
+                      - dynamodb:PutItem
+                      - dynamodb:Query
+                    Resource: !GetAtt DynamoTableSGRules.Arn
+
+    SgaGetSgLambda:
+      Type: "AWS::Lambda::Function"
+      Properties:
+        Role: !GetAtt SgaGetSgLambdaIAMRole.Arn
+        Handler: lambda_function.lambda_handler
+        Environment:
+          Variables:
+            DB_TABLE: !Ref DynamoTableSGRules
+        Runtime: python3.10
+        Timeout: 300
+        Code:
+          S3Bucket: !ImportValue sga-resources-bucket-ref
+          S3Key: GetSGTest-5635c8ba-9036-4b27-a232-ffb9f8874040.zip
+
+    SgaGetEniLambdaIAMRole:
+        Type: AWS::IAM::Role
+        Properties:
+          AssumeRolePolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Principal:
+                  Service: lambda.amazonaws.com
+                Action: sts:AssumeRole
+          Path: /
+          ManagedPolicyArns:
+            - !Ref SgaCloudWatchLogsPolicy
+          Policies:
+            - PolicyName: DescribeSecurityGroupsPolicy
+              PolicyDocument:
+                Version: '2012-10-17'
+                Statement:
+                  - Effect: Allow
+                    Action:
+                      - ec2:DescribeNetworkInterfaces
+                      - ec2:DescribeTags
+                      - ec2:DescribeNetworkAcls
+                      - ec2:DescribeRouteTables
+                    Resource: "*"
+            - PolicyName: DynamoDBPermissions
+              PolicyDocument:
+                Version: '2012-10-17'
+                Statement:
+                  - Effect: Allow
+                    Action:
+                      - dynamodb:PutItem
+                      - dynamodb:Query
+                    Resource: !GetAtt DynamoTableENIAnalysis.Arn
+
+    SgaGetEniLambda:
+      Type: "AWS::Lambda::Function"
+      Properties:
+        Role: !GetAtt SgaGetEniLambdaIAMRole.Arn
+        Handler: lambda_function.lambda_handler
+        Environment:
+          Variables:
+            DB_TABLE: !Ref DynamoTableENIAnalysis
+        Runtime: python3.10
+        Timeout: 300
+        Code:
+          S3Bucket: !ImportValue sga-resources-bucket-ref
+          S3Key: GetENITest-787e5a66-3dc8-4c70-b8a6-f9e4ba4761d5.zip
