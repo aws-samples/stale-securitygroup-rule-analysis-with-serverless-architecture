@@ -1,0 +1,60 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Template to create cross account roles for the SGA solution, these roles allow Lambda functions to access EC2 APIs"
+Parameters:
+  SgaSecurityGroupLambdaArn:
+    Type: String
+    Description: The arn of the role assumed by the SgaGetSgLambda function in the SGA account
+  SgaEniLambdaArn:
+    Type: String
+    Description: The arn of the role assumed by the SgaGetEniLambda function in the SGA account
+Resources:
+    SgaCrossAccountSgIAMRole:
+        Type: AWS::IAM::Role
+        Properties:
+          RoleName: SgaCrossAccountSecurityGroupLambda
+          Path: /
+          AssumeRolePolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Principal:
+                  AWS: 
+                    - !Ref SgaSecurityGroupLambdaArn
+                Action: sts:AssumeRole
+          Policies:
+            - PolicyName: DescribeSecurityGroupsPolicy
+              PolicyDocument:
+                Version: '2012-10-17'
+                Statement:
+                  - Effect: Allow
+                    Action:
+                      - ec2:DescribeSecurityGroups
+                      - ec2:DescribeSecurityGroupReferences
+                      - ec2:DescribeSecurityGroupRules
+                    Resource: "*"
+
+    SgaCrossAccountEniIAMRole:
+        Type: AWS::IAM::Role
+        Properties:
+          RoleName: SgaCrossAccountEniLambda
+          Path: /
+          AssumeRolePolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Principal:
+                  AWS:
+                    - !Ref SgaEniLambdaArn
+                Action: sts:AssumeRole
+          Policies:
+            - PolicyName: DescribeSecurityGroupsPolicy
+              PolicyDocument:
+                Version: '2012-10-17'
+                Statement:
+                  - Effect: Allow
+                    Action:
+                      - ec2:DescribeNetworkInterfaces
+                      - ec2:DescribeTags
+                      - ec2:DescribeNetworkAcls
+                      - ec2:DescribeRouteTables
+                    Resource: "*"
