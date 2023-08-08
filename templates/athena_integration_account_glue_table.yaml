@@ -36,64 +36,64 @@ Resources:
               serialization.format: ' '
             SerializationLibrary: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe
           Columns:
-            - Name: 'version'
-              Type: int
             - Name: 'account_id'
               Type: string
-            - Name: 'interface_id'
-              Type: string
-            - Name: 'srcaddr'
-              Type: string
-            - Name: 'dstaddr'
-              Type: string
-            - Name: 'srcport'
-              Type: int
-            - Name: 'dstport'
-              Type: int
-            - Name: 'protocol'
-              Type: bigint
-            - Name: 'packets'
-              Type: bigint
-            - Name: 'bytes'
-              Type: bigint
-            - Name: 'start'
-              Type: bigint
-            - Name: 'end'
-              Type: bigint
             - Name: 'action'
-              Type: string
-            - Name: 'log_status'
-              Type: string
-            - Name: 'vpc_id'
-              Type: string
-            - Name: 'subnet_id'
-              Type: string
-            - Name: 'instance_id'
-              Type: string
-            - Name: 'tcp_flags'
-              Type: int
-            - Name: 'type'
-              Type: string
-            - Name: 'pkt_srcaddr'
-              Type: string
-            - Name: 'pkt_dstaddr'
-              Type: string
-            - Name: 'region'
               Type: string
             - Name: 'az_id'
               Type: string
-            - Name: 'sublocation_type'
+            - Name: 'bytes'
+              Type: bigint
+            - Name: 'dstaddr'
               Type: string
-            - Name: 'sublocation_id'
+            - Name: 'dstport'
+              Type: int
+            - Name: 'end'
+              Type: bigint
+            - Name: 'flow_direction'
+              Type: string
+            - Name: 'instance_id'
+              Type: string
+            - Name: 'interface_id'
+              Type: string
+            - Name: 'log_status'
+              Type: string
+            - Name: 'packets'
+              Type: bigint
+            - Name: 'pkt_dst_aws_service'
+              Type: string
+            - Name: 'pkt_dstaddr'
               Type: string
             - Name: 'pkt_src_aws_service'
               Type: string
-            - Name: 'pkt_dst_aws_service'
+            - Name: 'pkt_srcaddr'
               Type: string
-            - Name: 'flow_direction'
+            - Name: 'protocol'
+              Type: bigint
+            - Name: 'region'
               Type: string
+            - Name: 'srcaddr'
+              Type: string
+            - Name: 'srcport'
+              Type: int
+            - Name: 'start'
+              Type: bigint
+            - Name: 'sublocation_id'
+              Type: string
+            - Name: 'sublocation_type'
+              Type: string
+            - Name: 'subnet_id'
+              Type: string
+            - Name: 'tcp_flags'
+              Type: int
             - Name: 'traffic_path'
               Type: int
+            - Name: 'type'
+              Type: string
+            - Name: 'version'
+              Type: int
+            - Name: 'vpc_id'
+              Type: string
               
   VpcFlowLogsTableIntegrationLambdaExecutorRole:
     Type: AWS::IAM::Role
