@@ -447,6 +447,14 @@ Resources:
                       - dynamodb:PutItem
                       - dynamodb:Query
                     Resource: !GetAtt DynamoTableSGRules.Arn
+            - PolicyName: AssumeCrossAccountRole
+              PolicyDocument:
+                Version: '2012-10-17'
+                Statement:
+                  - Effect: Allow
+                    Action:
+                      - sts:AssumeRole
+                    Resource: arn:aws:iam:::role/SgaCrossAccountSecurityGroupLambda
 
     SgaGetSgLambda:
       Type: "AWS::Lambda::Function"
@@ -498,6 +506,14 @@ Resources:
                       - dynamodb:PutItem
                       - dynamodb:Query
                     Resource: !GetAtt DynamoTableENIAnalysis.Arn
+            - PolicyName: AssumeCrossAccountRole
+              PolicyDocument:
+                Version: '2012-10-17'
+                Statement:
+                  - Effect: Allow
+                    Action:
+                      - sts:AssumeRole
+                    Resource: arn:aws:iam:::role/SgaCrossAccountEniLambda
 
     SgaGetEniLambda:
       Type: "AWS::Lambda::Function"
