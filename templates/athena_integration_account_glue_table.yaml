@@ -1,0 +1,351 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Athena Database for Flow Logs
+Parameters:
+  MemberAccountId:
+    Type: String
+    Description: The account ID of the account
+  MemberAccountRegion:
+    Type: String
+    Description: The region in which the flow logs are recorded in (lower case)
+Resources:
+  
+  VpcFlowLogsTable:
+    Type: AWS::Glue::Table
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseName: !ImportValue sga-glue-database-ref
+      TableInput:
+        Description: This table has the schema for vpc flow logs information.
+        PartitionKeys:
+          - Name: year
+            Type: string
+          - Name: month
+            Type: string
+          - Name: day
+            Type: string
+        TableType: EXTERNAL_TABLE
+        StorageDescriptor:
+          Location:  !Sub 's3://sga-central-flow-logs-bucket-sgas3bucketvpclogs-18e3c16wdm971/AWSLogs/${MemberAccountId}/vpcflowlogs/${MemberAccountRegion}/'
+          InputFormat: org.apache.hadoop.mapred.TextInputFormat
+          OutputFormat: org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat
+          SerdeInfo:
+            Parameters:
+              skip.header.line.count: "1"
+              EXTERNAL: "true"
+              field.delim: ' '
+              serialization.format: ' '
+            SerializationLibrary: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe
+          Columns:
+            - Name: 'version'
+              Type: int
+            - Name: 'account_id'
+              Type: string
+            - Name: 'interface_id'
+              Type: string
+            - Name: 'srcaddr'
+              Type: string
+            - Name: 'dstaddr'
+              Type: string
+            - Name: 'srcport'
+              Type: int
+            - Name: 'dstport'
+              Type: int
+            - Name: 'protocol'
+              Type: bigint
+            - Name: 'packets'
+              Type: bigint
+            - Name: 'bytes'
+              Type: bigint
+            - Name: 'start'
+              Type: bigint
+            - Name: 'end'
+              Type: bigint
+            - Name: 'action'
+              Type: string
+            - Name: 'log_status'
+              Type: string
+            - Name: 'vpc_id'
+              Type: string
+            - Name: 'subnet_id'
+              Type: string
+            - Name: 'instance_id'
+              Type: string
+            - Name: 'tcp_flags'
+              Type: int
+            - Name: 'type'
+              Type: string
+            - Name: 'pkt_srcaddr'
+              Type: string
+            - Name: 'pkt_dstaddr'
+              Type: string
+            - Name: 'region'
+              Type: string
+            - Name: 'az_id'
+              Type: string
+            - Name: 'sublocation_type'
+              Type: string
+            - Name: 'sublocation_id'
+              Type: string
+            - Name: 'pkt_src_aws_service'
+              Type: string
+            - Name: 'pkt_dst_aws_service'
+              Type: string
+            - Name: 'flow_direction'
+              Type: string
+            - Name: 'traffic_path'
+              Type: int
+              
+  VpcFlowLogsTableIntegrationLambdaExecutorRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: VpcFlowLogsTableIntegrationLambdaExecutorPolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: 'arn:aws:logs:*:*:*'
+              - Effect: Allow
+                Action:
+                  - 'glue:GetTable'
+                  - 'glue:CreatePartition'
+                  - 'glue:UpdatePartition'
+                  - 'glue:GetPartition'
+                Resource: "*"
+                
+  SgaInitializerAsync:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        ZipFile: |
+          const response = require('./cfn-response');
+          const AWS = require('aws-sdk');
+          const glue = new AWS.Glue();
+
+          exports.handler =  async function(event, context) {
+            let errs = [], status
+            if (event.RequestType === 'Delete') {
+              status = response.SUCCESS
+            } else {
+                console.log("Parsing athena configs")
+                let rp = event.ResourceProperties
+                let confs = rp.athenaIntegrations;
+                let db = rp.dbName
+                let hive = rp.hive
+                let account_id = rp.account_id
+                let service = rp.service
+                let region = rp.region
+
+                let errs = []
+
+                for(let i = 0; i < confs.length; i++) {
+                  let cnf = confs[i]
+                  let tab = cnf['partitionTableName']
+                  let frq = cnf['partitionLoadFrequency']
+                  let strt = (cnf['partitionStartDate'] == undefined) ? new Date() : new Date(cnf['partitionStartDate'])
+                  let end = (cnf['partitionEndDate'] == undefined) ? new Date() : new Date(cnf['partitionEndDate'])
+
+                  while(strt <= end) {
+                    let table = await glue.getTable({
+                      DatabaseName: db,
+                      Name: tab,
+                    }).promise()
+
+                    let strgDesc = table.Table['StorageDescriptor']
+                    let Values
+                    let newDate = new Date()
+
+                    if(frq == "monthly") {
+                      if(hive == "true") {
+                        Values = ["aws-account-id=" + account_id, "aws-service=" + service, "aws-region=" + region, "year=" + String(strt.getFullYear()), "month=" + ("0" + (strt.getMonth() + 1)).slice(-2)]
+                      } else {
+                        Values = [String(strt.getFullYear()), ("0" + (strt.getMonth() + 1)).slice(-2)]
+                      }
+                      newDate = strt.setMonth(strt.getMonth() + 1);
+                    } else if(frq == "hourly") {
+                      if(hive == "true") {
+                        Values = ["aws-account-id=" + account_id, "aws-service=" + service, "aws-region=" + region, "year=" + String(strt.getFullYear()), "month=" + ("0" + (strt.getMonth() + 1)).slice(-2), "day=" + ("0" + strt.getDate()).slice(-2), "hour=" + ("0" + strt.getHours()).slice(-2)]
+                      } else {
+                        Values = [String(strt.getFullYear()), ("0" + (strt.getMonth() + 1)).slice(-2), ("0" + strt.getDate()).slice(-2), ("0" + strt.getHours()).slice(-2)]
+                      }
+                      newDate.setHours(strt.getHours() + 1);
+                    } else {
+                      if(hive == "true") {
+                        Values = ["aws-account-id=" + account_id, "aws-service=" + service, "aws-region=" + region, "year=" + String(strt.getFullYear()), "month=" + ("0" + (strt.getMonth() + 1)).slice(-2), "day=" + ("0" + strt.getDate()).slice(-2)]
+                      } else {
+                        Values = [String(strt.getFullYear()), ("0" + (strt.getMonth() + 1)).slice(-2), ("0" + strt.getDate()).slice(-2)]
+                      }
+                      newDate = strt.setDate(strt.getDate() + 1);
+                    }
+
+                    try {
+                      let result = await glue.getPartition({
+                          DatabaseName: db,
+                          TableName: tab,
+                          PartitionValues: Values
+                      }).promise()
+                    } catch (err) {
+                      if(err.code === 'EntityNotFoundException'){
+                          console.log(strgDesc)
+                          let params = {
+                              DatabaseName: db,
+                              TableName: tab,
+                              PartitionInput: {
+                                  StorageDescriptor: {
+                                      ...strgDesc,
+                                      Location: `${strgDesc.Location}${Values.join('/')}/`
+                                  },
+                                  Values,
+                              },
+                          }
+                          await glue.createPartition(params).promise()
+                      } else {
+                          errs.push(err)
+                      }
+                    }
+                    strt = new Date(newDate);
+                  }
+                }
+
+                status = errs.length > 0 ? response.FAILED : response.SUCCESS
+              }
+              return new Promise(() => response.send(event, context, status,
+              errs.length > 0 ? { error: errs } : {}, event.LogicalResourceId));
+          }
+
+      Handler: 'index.handler'
+      Timeout: 60
+      Runtime: nodejs14.x
+      ReservedConcurrentExecutions: 1
+      Role: !GetAtt VpcFlowLogsTableIntegrationLambdaExecutorRole.Arn
+
+  SgaInitialiser:
+    Type: 'Custom::VPCFlowLogsAthenaStartInitializer'
+    Properties:
+      ServiceToken: !GetAtt SgaInitializerAsync.Arn
+      dbName: !ImportValue sga-glue-database-ref
+      hive : false
+      account_id : !Ref MemberAccountId
+      service: vpcflowlogs
+      region: !Ref MemberAccountRegion
+      athenaIntegrations:
+        - partitionTableName: !Ref VpcFlowLogsTable
+          partitionLoadFrequency: daily
+          partitionStartDate: 2023-08-08T00:00:00
+          partitionEndDate: 2023-08-08T23:59:59
+
+  # creates a lambda function for daily partition creation.
+  SgaLambdaPartitionerDaily:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        ZipFile: |
+          const AWS = require('aws-sdk');
+          const glue = new AWS.Glue();
+
+          exports.handler = async function(event, context) {
+            let db = event.db
+            let confs = event.athena
+            let hive = event.hive
+            let account_id = event.account_id
+            let service = event.service
+            let region = event.region
+            let today = new Date()
+            let errs = []
+
+            for(let i = 0; i < confs.length; i++) {
+              let cnf = confs[i]
+              let tab = cnf['partitionTableName']
+              let frq = cnf['frequency']
+
+              let table = await glue.getTable({
+                DatabaseName: db,
+                Name: tab,
+              }).promise()
+
+              let strgDesc = table.Table['StorageDescriptor']
+              let Values
+
+              if(frq == "hourly"){
+                if(hive == "true") {
+                  Values = ["aws-account-id=" + account_id, "aws-service=" + service, "aws-region=" + region, "year=" + String(today.getFullYear()), "month=" + ("0" + (today.getMonth() + 1)).slice(-2), "day=" + ("0" + today.getDate()).slice(-2), "hour=" + ("0" + today.getHours()).slice(-2)]
+                } else {
+                  Values = [String(today.getFullYear()), ("0" + (today.getMonth() + 1)).slice(-2), ("0" + today.getDate()).slice(-2), ("0" + today.getHours()).slice(-2)]
+                }
+              } else {
+                  if(hive == "true") {
+                    Values = ["aws-account-id=" + account_id, "aws-service=" + service, "aws-region=" + region, "year=" + String(today.getFullYear()), "month=" + ("0" + (today.getMonth() + 1)).slice(-2), "day=" + ("0" + (today.getDate())).slice(-2)]
+                  } else {
+                    Values = [String(today.getFullYear()), ("0" + (today.getMonth() + 1)).slice(-2), ("0" + (today.getDate())).slice(-2)]
+                  }
+              }
+              try {
+                let result = await glue.getPartition({
+                  DatabaseName: db,
+                  TableName: tab,
+                  PartitionValues: Values
+                }).promise()
+              } catch (err) {
+                  if(err.code === 'EntityNotFoundException'){
+                    console.log(strgDesc)
+                    let params = {
+                      DatabaseName: db,
+                      TableName: tab,
+                      PartitionInput: {
+                        StorageDescriptor: {
+                            ...strgDesc,
+                            Location: `${strgDesc.Location}${Values.join('/')}/`
+                        },
+                        Values,
+                      },
+                    }
+                    await glue.createPartition(params).promise()
+                  } else {
+                    errs.push(err)
+                }
+              }
+            }
+
+            return new Promise(function(resolve, reject) { errs.length > 0 ? reject(errs) : resolve("SUCCESS")});
+          }
+      Handler: 'index.handler'
+      Timeout: 30
+      Runtime: nodejs14.x
+      ReservedConcurrentExecutions: 1
+      Role: !GetAtt VpcFlowLogsTableIntegrationLambdaExecutorRole.Arn
+
+  # creates event rule for daily lambda function trigger
+  SgaScheduledEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: This event rule will be invoking lambda based on schedule
+      Name: SgaScheduledEventRule
+      ScheduleExpression: cron(0 0 * * ? *)
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt SgaLambdaPartitionerDaily.Arn
+          Id: SgaLambdaPartitionerDaily
+          Input: !Sub ["{\"db\": \"${glue_db}\", \"hive\": \"false\", \"account_id\": \"${MemberAccountId}\", \"service\": \"vpcflowlogs\", \"region\": \"${MemberAccountRegion}\" ,\"athena\": [ {\"partitionTableName\": \"${VpcFlowLogsTable}\", \"frequency\": \"daily\"}]}", glue_db: !ImportValue sga-glue-database-ref]
+
+  # creates lambda permission for daily schedule
+  ScheduledEventPermissionfl0cdb44ccd7427b7a4daily2023071020230710:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt SgaLambdaPartitionerDaily.Arn
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt SgaScheduledEventRule.Arn
