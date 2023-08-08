@@ -80,8 +80,6 @@ Resources:
 
     StepFuncLogGroup:
         Type: "AWS::Logs::LogGroup"
-        Properties:
-            LogGroupName: "/aws/vendedlogs/states/sg-analysis-step-function-logs_KS"
 
     DynamoTableSGRules:
         Type: "AWS::DynamoDB::Table"
@@ -235,7 +233,6 @@ Resources:
     EventsRule:
         Type: "AWS::Events::Rule"
         Properties:
-            Name: "sg-analysis-step-function-ks"
             ScheduleExpression: "cron(0 9 * * ? *)"
             State: "DISABLED"
             Targets: 
