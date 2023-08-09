@@ -4,16 +4,23 @@ import os
 from modules.aws_network.securitygroup import SecurityGroup
 from modules.aws_network.export import ExportNetwork
 
-sg_client = SecurityGroup()
+
 export_client = ExportNetwork()
 
 def lambda_handler(event, context):
     
+    accountNo = event.get('AccountNo')
+    if accountNo:
+        sg_client = SecurityGroup(None, None, accountNo)
+    else:
+        sg_client = SecurityGroup()
+        
     sg_client.list_security_groups()
     
     # print(sg_client.security_groups)
     
     security_group_list = sg_client.list_security_group_rules()
+
     
     if os.environ.get('DB_TABLE'):
         try:
