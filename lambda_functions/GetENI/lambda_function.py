@@ -7,11 +7,16 @@ import time
 import calendar
 
 exp = ExportNetwork()
-nic = NetworkInterface()
-
 
 def lambda_handler(event, context):
     if os.environ.get('DB_TABLE'):
+
+        accountNo = event.get('AccountNo')
+        if accountNo:
+            ArnRole = f"arn:aws:iam::{accountNo}:role/SgaCrossAccountSecurityGroupLambda"
+            nic = NetworkInterface(role_arn=ArnRole, role_session_name="AssumedRoleSessionName")
+        else:
+            nic = NetworkInterface(role_arn=None, role_session_name=None)
         
         nic.list_interfaces()
         
