@@ -317,13 +317,18 @@ Resources:
                 --enable-job-insights: "false"
                 --job-language: "python"
                 --prebuilt-library-option: "prebuilt-library-enable"
+                --region: "eu-west-2"
+                --database: "sg_analysis_rules_data_ks"
+                --table: "sg_analysis_rules_data_ks"
+                --bucket: "sga-buckets-sgas3bucketathena-1oadk3sp8xq5n"
+                --path: "path"
             MaxRetries: 1
             Timeout: 2880
             GlueVersion: "1.0"
             MaxCapacity: 0.0625
 
     SgaParseFlowLogsGlueJobIAMRole:
-        Type: AWS::IAM::Role
+        Type: "AWS::IAM::Role"
         Properties:
           AssumeRolePolicyDocument:
             Version: '2012-10-17'
