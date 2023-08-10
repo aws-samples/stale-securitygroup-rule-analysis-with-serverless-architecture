@@ -80,8 +80,6 @@ Resources:
 
     StepFuncLogGroup:
         Type: "AWS::Logs::LogGroup"
-        Properties:
-            LogGroupName: "/aws/vendedlogs/states/sg-analysis-step-function-logs_KS"
 
     DynamoTableSGRules:
         Type: "AWS::DynamoDB::Table"
@@ -235,7 +233,6 @@ Resources:
     EventsRule:
         Type: "AWS::Events::Rule"
         Properties:
-            Name: "sg-analysis-step-function-ks"
             ScheduleExpression: "cron(0 9 * * ? *)"
             State: "DISABLED"
             Targets: 
@@ -447,6 +444,14 @@ Resources:
                       - dynamodb:PutItem
                       - dynamodb:Query
                     Resource: !GetAtt DynamoTableSGRules.Arn
+            - PolicyName: AssumeCrossAccountRole
+              PolicyDocument:
+                Version: '2012-10-17'
+                Statement:
+                  - Effect: Allow
+                    Action:
+                      - sts:AssumeRole
+                    Resource: arn:aws:iam::*:role/SgaCrossAccountSecurityGroupLambda
 
     SgaGetSgLambda:
       Type: "AWS::Lambda::Function"
@@ -498,6 +503,14 @@ Resources:
                       - dynamodb:PutItem
                       - dynamodb:Query
                     Resource: !GetAtt DynamoTableENIAnalysis.Arn
+            - PolicyName: AssumeCrossAccountRole
+              PolicyDocument:
+                Version: '2012-10-17'
+                Statement:
+                  - Effect: Allow
+                    Action:
+                      - sts:AssumeRole
+                    Resource: arn:aws:iam::*:role/SgaCrossAccountEniLambda
 
     SgaGetEniLambda:
       Type: "AWS::Lambda::Function"
