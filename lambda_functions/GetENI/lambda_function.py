@@ -12,11 +12,13 @@ def lambda_handler(event, context):
     if os.environ.get('DB_TABLE'):
 
         accountNo = event.get('AccountNo')
+        CrossAccountRoleName = os.environ.get('CROSS_ACCOUNT_ROLE_NAME')
         if accountNo:
-            ArnRole = f"arn:aws:iam::{accountNo}:role/SgaCrossAccountSecurityGroupLambda"
+            ArnRole = f"arn:aws:iam::{accountNo}:role/{CrossAccountRoleName}"
+            print("Using role: " + ArnRole)
             nic = NetworkInterface(role_arn=ArnRole, role_session_name="AssumedRoleSessionName")
         else:
-            nic = NetworkInterface(role_arn=None, role_session_name=None)
+            nic = NetworkInterface()
         
         nic.list_interfaces()
         

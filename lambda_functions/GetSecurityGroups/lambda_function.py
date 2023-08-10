@@ -8,11 +8,13 @@ export_client = ExportNetwork()
 def lambda_handler(event, context):
     
     accountNo = event.get('AccountNo')
+    CrossAccountRoleName = os.environ.get('CROSS_ACCOUNT_ROLE_NAME')
     if accountNo:
-        ArnRole = f"arn:aws:iam::{accountNo}:role/SgaCrossAccountSecurityGroupLambda"
+        ArnRole = f"arn:aws:iam::{accountNo}:role/{CrossAccountRoleName}"
+        print("Using role: " + ArnRole)
         sg_client = SecurityGroup(role_arn=ArnRole, role_session_name="AssumedRoleSessionName")
     else:
-        sg_client = SecurityGroup(role_arn=None, role_session_name=None)
+        sg_client = SecurityGroup()
         
     sg_client.list_security_groups()
     
