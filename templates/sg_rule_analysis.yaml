@@ -462,7 +462,7 @@ Resources:
         Timeout: 300
         Code:
           S3Bucket: !ImportValue sga-resources-bucket-ref
-          S3Key: KS-Test-SgaGetSgLambda-xOyC3kFGzLZ6-619f0529-fc1f-4909-b59d-810b02dc0d85.zip
+          S3Key: KS-Test-SgaGetSgLambda-FU23JMQzQK3h-5039b3ae-2980-4eeb-b4db-8e79c04a72d6.zip
 
     SgaGetEniLambdaIAMRole:
         Type: AWS::IAM::Role
@@ -513,4 +513,4 @@ Resources:
         Timeout: 300
         Code:
           S3Bucket: !ImportValue sga-resources-bucket-ref
-          S3Key: KS-Test-SgaGetEniLambda-x0dM2gkaKrK8-eaee5dff-eed7-4678-8dc6-33af053940be.zip
+          S3Key: KS-Test-SgaGetEniLambda-zTqrdlSrwIes-4a6b52c6-9f45-4a23-9866-1f615ef543ef.zip
