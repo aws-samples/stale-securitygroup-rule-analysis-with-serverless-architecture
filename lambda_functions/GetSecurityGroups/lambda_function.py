@@ -1,5 +1,3 @@
-import json
-import boto3
 import os
 from modules.aws_network.securitygroup import SecurityGroup
 from modules.aws_network.export import ExportNetwork
@@ -11,13 +9,12 @@ def lambda_handler(event, context):
     
     accountNo = event.get('AccountNo')
     if accountNo:
-        sg_client = SecurityGroup(None, None, accountNo)
+        ArnRole = f"arn:aws:iam::{accountNo}:role/SgaCrossAccountSecurityGroupLambda"
+        sg_client = SecurityGroup(role_arn=ArnRole, role_session_name="AssumedRoleSessionName")
     else:
-        sg_client = SecurityGroup()
+        sg_client = SecurityGroup(role_arn=None, role_session_name=None)
         
     sg_client.list_security_groups()
-    
-    # print(sg_client.security_groups)
     
     security_group_list = sg_client.list_security_group_rules()
 
