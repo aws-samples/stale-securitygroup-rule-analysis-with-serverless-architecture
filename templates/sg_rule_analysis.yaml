@@ -456,11 +456,13 @@ Resources:
         Environment:
           Variables:
             DB_TABLE: !Ref DynamoTableSGRules
+            # Define CROSS_ACCOUNT_ROLE_NAME here if you want to assume another role e.g. `ARN_ROLE: arn:aws:iam::<AccountNo>:role/<Role>`
+            CROSS_ACCOUNT_ROLE_NAME: SgaCrossAccountSecurityGroupLambda
         Runtime: python3.10
         Timeout: 300
         Code:
           S3Bucket: !ImportValue sga-resources-bucket-ref
-          S3Key: GetSGTest-5635c8ba-9036-4b27-a232-ffb9f8874040.zip
+          S3Key: KS-Test-SgaGetSgLambda-FU23JMQzQK3h-e5bf42f5-d48d-49eb-b014-c60d1690fe98.zip
 
     SgaGetEniLambdaIAMRole:
         Type: AWS::IAM::Role
@@ -505,8 +507,10 @@ Resources:
         Environment:
           Variables:
             DB_TABLE: !Ref DynamoTableENIAnalysis
+            # Define CROSS_ACCOUNT_ROLE_NAME here if you want to assume another role e.g. `ARN_ROLE: arn:aws:iam::<AccountNo>:role/<Role>`
+            CROSS_ACCOUNT_ROLE_NAME: SgaCrossAccountEniLambda
         Runtime: python3.10
         Timeout: 300
         Code:
           S3Bucket: !ImportValue sga-resources-bucket-ref
-          S3Key: GetENITest-787e5a66-3dc8-4c70-b8a6-f9e4ba4761d5.zip
+          S3Key: KS-Test-SgaGetEniLambda-zTqrdlSrwIes-49aa08b1-367c-41d5-9f21-8ec2f1cc355b.zip
