@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: Athena Database for Flow Logs
+Description: Glue Table for VPC flow logs, along with initialisation and daily flow log partitioning
 Parameters:
   MemberAccountId:
     Type: String
@@ -7,6 +7,9 @@ Parameters:
   MemberAccountRegion:
     Type: String
     Description: The region in which the flow logs are recorded in (lower case)
+  S3FlowLogBucket:
+    Type: String
+    Description: The name of the S3 bucket used for flow logs
 Resources:
   
   VpcFlowLogsTable:
@@ -25,7 +28,7 @@ Resources:
             Type: string
         TableType: EXTERNAL_TABLE
         StorageDescriptor:
-          Location:  !Sub 's3://sga-central-flow-logs-bucket-sgas3bucketvpclogs-18e3c16wdm971/AWSLogs/${MemberAccountId}/vpcflowlogs/${MemberAccountRegion}/'
+          Location:  !Sub 's3://${S3FlowLogBucket}/AWSLogs/${MemberAccountId}/vpcflowlogs/${MemberAccountRegion}/'
           InputFormat: org.apache.hadoop.mapred.TextInputFormat
           OutputFormat: org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat
           SerdeInfo:
@@ -246,7 +249,7 @@ Resources:
         - partitionTableName: !Ref VpcFlowLogsTable
           partitionLoadFrequency: daily
           partitionStartDate: 2023-08-08T00:00:00
-          partitionEndDate: 2023-08-08T23:59:59
+          partitionEndDate: 2023-08-09T23:59:59
 
   # creates a lambda function for daily partition creation.
   SgaLambdaPartitionerDaily:
