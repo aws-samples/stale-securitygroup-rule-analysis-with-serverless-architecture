@@ -456,8 +456,8 @@ Resources:
         Environment:
           Variables:
             DB_TABLE: !Ref DynamoTableSGRules
-            # Define ROLE_ARN here if you want to assume another account e.g. `ARN_ROLE: arn:aws:iam::<AccountNo>:role/<Role>`
-            ARN_ROLE: arn:aws:iam::019050653029:role/security-group-monitoring-lambda-get-sg-role
+            # Define CROSS_ACCOUNT_ROLE_NAME here if you want to assume another role e.g. `ARN_ROLE: arn:aws:iam::<AccountNo>:role/<Role>`
+            CROSS_ACCOUNT_ROLE_NAME: SgaCrossAccountSecurityGroupLambda
         Runtime: python3.10
         Timeout: 300
         Code:
@@ -507,8 +507,8 @@ Resources:
         Environment:
           Variables:
             DB_TABLE: !Ref DynamoTableENIAnalysis
-            # Define ROLE_ARN here if you want to assume another account e.g. `ARN_ROLE: arn:aws:iam::<AccountNo>:role/<Role>`
-            ARN_ROLE: arn:aws:iam::019050653029:role/security-group-monitoring-lambda-get-sg-role
+            # Define CROSS_ACCOUNT_ROLE_NAME here if you want to assume another role e.g. `ARN_ROLE: arn:aws:iam::<AccountNo>:role/<Role>`
+            CROSS_ACCOUNT_ROLE_NAME: SgaCrossAccountEniLambda
         Runtime: python3.10
         Timeout: 300
         Code:
