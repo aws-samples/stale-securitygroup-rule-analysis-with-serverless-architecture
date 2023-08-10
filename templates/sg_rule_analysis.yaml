@@ -451,7 +451,7 @@ Resources:
                   - Effect: Allow
                     Action:
                       - sts:AssumeRole
-                    Resource: arn:aws:iam:::role/SgaCrossAccountSecurityGroupLambda
+                    Resource: arn:aws:iam::*:role/SgaCrossAccountSecurityGroupLambda
 
     SgaGetSgLambda:
       Type: "AWS::Lambda::Function"
@@ -510,7 +510,7 @@ Resources:
                   - Effect: Allow
                     Action:
                       - sts:AssumeRole
-                    Resource: arn:aws:iam:::role/SgaCrossAccountEniLambda
+                    Resource: arn:aws:iam::*:role/SgaCrossAccountEniLambda
 
     SgaGetEniLambda:
       Type: "AWS::Lambda::Function"
