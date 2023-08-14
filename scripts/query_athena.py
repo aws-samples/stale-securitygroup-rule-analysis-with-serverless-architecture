@@ -24,7 +24,7 @@ params = {
     'path': args['path']
 }
 
-date_yst = (date.today() - timedelta(2))
+date_yst = (date.today() - timedelta(1))
 if date_yst.day > 9:
     params['query'] = f"select interface_id, protocol, flow_direction, srcaddr, srcport, dstaddr, dstport FROM {params['database']}.\"{params['table']}\" WHERE dstport is not null and day='{date_yst.day}' and action='ACCEPT'"
 else:
@@ -77,6 +77,7 @@ def athena_to_s3(session, params, max_execution = 5):
 
 def main():
     print("Executing the query to fetch ports and used information from Athena table....")
+    print(f'parameters set to: {params}')
     # Query Athena and get the Ports information
     ports_count_info = athena_to_s3(session, params)
 
