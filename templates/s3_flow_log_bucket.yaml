@@ -1,0 +1,55 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Security Group Analysis VPC Flow Logs Bucket"
+Resources:
+
+    SgaS3BucketVPCLogs:
+      Type: "AWS::S3::Bucket"
+      Properties: 
+        AccessControl: BucketOwnerFullControl
+
+
+    s3BucketPolicy:
+      Type: AWS::S3::BucketPolicy
+      Properties:
+        Bucket: !Ref SgaS3BucketVPCLogs
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Sid: LogDeliveryCheck
+              Effect: Allow
+              Principal:
+                Service: delivery.logs.amazonaws.com
+              Action: 
+                - "s3:GetBucketAcl"
+                - "s3:ListBucket"
+              Resource: 
+                - !GetAtt SgaS3BucketVPCLogs.Arn
+                - !Join 
+                  - ''
+                  - - !GetAtt SgaS3BucketVPCLogs.Arn
+                    - '/*'
+              Condition:
+                Bool:
+                  'aws:SecureTransport': 'true'
+                StringLike:
+                  'aws:SourceAccount':
+                    - <VPCFlowLogsAccountID>
+            - Sid: LogDeliveryWrite
+              Effect: Allow
+              Principal:
+                Service: delivery.logs.amazonaws.com
+              Action: s3:PutObject
+              Resource: 
+                - !GetAtt SgaS3BucketVPCLogs.Arn
+                - !Join 
+                  - ''
+                  - - !GetAtt SgaS3BucketVPCLogs.Arn
+                    - '/*'
+              Condition:
+                Bool:
+                  'aws:SecureTransport': 'true'
+                StringLike:
+                  'aws:SourceAccount':
+                    - <VPCFlowLogsAccountID>
+                StringEquals: 
+                  "s3:x-amz-acl": "bucket-owner-full-control"
