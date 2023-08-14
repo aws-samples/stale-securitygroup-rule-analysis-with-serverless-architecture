@@ -1,0 +1,15 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Athena Database for Flow Logs
+Resources:
+  VpcFlowLogsAthenaDatabase:
+    Type: 'AWS::Glue::Database'
+    Properties:
+      DatabaseInput:
+        Name: vpcflowlogsathenadatabase
+      CatalogId: !Ref 'AWS::AccountId'
+
+Outputs:
+  GlueDatabase:
+    Value: !Ref VpcFlowLogsAthenaDatabase
+    Export:
+      Name: sga-glue-database-ref

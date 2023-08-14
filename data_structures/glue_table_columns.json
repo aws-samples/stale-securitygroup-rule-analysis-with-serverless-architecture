@@ -1,0 +1,133 @@
+[
+    {
+        "Name": "account_id",
+        "Type": "string"
+    },
+    {
+        "Name": "action",
+        "Type": "string"
+    },
+    {
+        "Name": "az_id",
+        "Type": "string"
+    },
+    {
+        "Name": "bytes",
+        "Type": "bigint"
+    },
+    {
+        "Name": "dstaddr",
+        "Type": "string"
+    },
+    {
+        "Name": "dstport",
+        "Type": "int"
+    },
+    {
+        "Name": "end",
+        "Type": "bigint"
+    },
+    {
+        "Name": "flow_direction",
+        "Type": "string"
+    },
+    {
+        "Name": "instance_id",
+        "Type": "string"
+    },
+    {
+        "Name": "interface_id",
+        "Type": "string"
+    },
+    {
+        "Name": "log_status",
+        "Type": "string"
+    },
+    {
+        "Name": "packets",
+        "Type": "bigint"
+    },
+    {
+        "Name": "pkt_dst_aws_service",
+        "Type": "string"
+    },
+    {
+        "Name": "pkt_dstaddr",
+        "Type": "string"
+    },
+    {
+        "Name": "pkt_src_aws_service",
+        "Type": "string"
+    },
+    {
+        "Name": "pkt_srcaddr",
+        "Type": "string"
+    },
+    {
+        "Name": "protocol",
+        "Type": "bigint"
+    },
+    {
+        "Name": "region",
+        "Type": "string"
+    },
+    {
+        "Name": "srcaddr",
+        "Type": "string"
+    },
+    {
+        "Name": "srcport",
+        "Type": "int"
+    },
+    {
+        "Name": "start",
+        "Type": "bigint"
+    },
+    {
+        "Name": "sublocation_id",
+        "Type": "string"
+    },
+    {
+        "Name": "sublocation_type",
+        "Type": "string"
+    },
+    {
+        "Name": "subnet_id",
+        "Type": "string"
+    },
+    {
+        "Name": "tcp_flags",
+        "Type": "int"
+    },
+    {
+        "Name": "traffic_path",
+        "Type": "int"
+    },
+    {
+        "Name": "type",
+        "Type": "string"
+    },
+    {
+        "Name": "version",
+        "Type": "int"
+    },
+    {
+        "Name": "vpc_id",
+        "Type": "string"
+    },
+    {
+        "Name": "year",
+        "Type": "string",
+        "PartitionKey": "Partition (0)"
+    },
+    {
+        "Name": "month",
+        "Type": "string",
+        "PartitionKey": "Partition (1)"
+    },
+    {
+        "Name": "day",
+        "Type": "string",
+        "PartitionKey": "Partition (2)"
+    }
+]
