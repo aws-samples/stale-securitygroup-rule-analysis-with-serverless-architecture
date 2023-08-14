@@ -379,7 +379,15 @@ Resources:
                         - dynamodb:GetItem
                       Resource:
                         - !GetAtt DynamoTableSGRules.Arn
+                        - !Join
+                            - ''
+                            - - !GetAtt DynamoTableSGRules.Arn
+                              - "/*"
                         - !GetAtt DynamoTableENIAnalysis.Arn
+                        - !Join
+                            - ''
+                            - - !GetAtt DynamoTableENIAnalysis.Arn
+                              - "/*"
               - PolicyName: GlueJobDynamoDBReadWritePolicy
                 PolicyDocument:
                   Version: '2012-10-17'
