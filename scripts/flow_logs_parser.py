@@ -22,7 +22,7 @@ nic_interface_tbl="sg-analysis-interface-details"
 dynamodb_tbl_name="sg-analysis-rules-usage"
 sg_analysis_rules_use_idx='addr-id-index'
 athena_s3_prefix = "vpcflowlogs"
-date_yst = (date.today() - timedelta(4))
+date_yst = (date.today() - timedelta(1))
 
 my_bucket = s3.Bucket(flow_logs_athena_results_bucket)
 

@@ -1,5 +1,9 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: "Template to create resources for Security Group rules analysis"
+Parameters:
+  SgaVpcFlowLogBucket:
+    Type: String
+    Description: The arn of the VPC flow log bucket
 Resources:
 
     SgaCloudWatchLogsPolicy:
@@ -265,6 +269,8 @@ Resources:
                       - athena:StartQueryExecution
                       - athena:GetQueryExecution
                       - athena:GetQueryResults
+                      - glue:GetTable
+                      - glue:GetPartitions
                     Resource: "*"
             - PolicyName: GlueJobS3Access
               PolicyDocument:
@@ -273,8 +279,8 @@ Resources:
                   - Effect: Allow
                     Action:
                       - s3:Get*
-                      - s3:HeadObject
                       - s3:List*
+                      - s3:PutObject
                     Resource:
                       - !ImportValue sga-resources-bucket-arn
                       - !Join
@@ -285,6 +291,11 @@ Resources:
                       - !Join
                           - ''
                           - - !ImportValue sga-athena-bucket-arn
+                            - "/*"
+                      - !Ref SgaVpcFlowLogBucket
+                      - !Join
+                          - ''
+                          - - !Ref SgaVpcFlowLogBucket
                             - "/*"
 
     SgaStartAthenaQueryGlueJob:
@@ -368,7 +379,15 @@ Resources:
                         - dynamodb:GetItem
                       Resource:
                         - !GetAtt DynamoTableSGRules.Arn
+                        - !Join
+                            - ''
+                            - - !GetAtt DynamoTableSGRules.Arn
+                              - "/*"
                         - !GetAtt DynamoTableENIAnalysis.Arn
+                        - !Join
+                            - ''
+                            - - !GetAtt DynamoTableENIAnalysis.Arn
+                              - "/*"
               - PolicyName: GlueJobDynamoDBReadWritePolicy
                 PolicyDocument:
                   Version: '2012-10-17'
