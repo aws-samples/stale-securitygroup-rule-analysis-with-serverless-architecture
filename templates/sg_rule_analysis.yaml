@@ -1,5 +1,9 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: "Template to create resources for Security Group rules analysis"
+Parameters:
+  SgaVpcFlowLogBucket:
+    Type: String
+    Description: The arn of the VPC flow log bucket
 Resources:
 
     SgaCloudWatchLogsPolicy:
@@ -80,8 +84,6 @@ Resources:
 
     StepFuncLogGroup:
         Type: "AWS::Logs::LogGroup"
-        Properties:
-            LogGroupName: "/aws/vendedlogs/states/sg-analysis-step-function-logs_KS"
 
     DynamoTableSGRules:
         Type: "AWS::DynamoDB::Table"
@@ -235,7 +237,6 @@ Resources:
     EventsRule:
         Type: "AWS::Events::Rule"
         Properties:
-            Name: "sg-analysis-step-function-ks"
             ScheduleExpression: "cron(0 9 * * ? *)"
             State: "DISABLED"
             Targets: 
@@ -268,6 +269,8 @@ Resources:
                       - athena:StartQueryExecution
                       - athena:GetQueryExecution
                       - athena:GetQueryResults
+                      - glue:GetTable
+                      - glue:GetPartitions
                     Resource: "*"
             - PolicyName: GlueJobS3Access
               PolicyDocument:
@@ -276,8 +279,8 @@ Resources:
                   - Effect: Allow
                     Action:
                       - s3:Get*
-                      - s3:HeadObject
                       - s3:List*
+                      - s3:PutObject
                     Resource:
                       - !ImportValue sga-resources-bucket-arn
                       - !Join
@@ -288,6 +291,11 @@ Resources:
                       - !Join
                           - ''
                           - - !ImportValue sga-athena-bucket-arn
+                            - "/*"
+                      - !Ref SgaVpcFlowLogBucket
+                      - !Join
+                          - ''
+                          - - !Ref SgaVpcFlowLogBucket
                             - "/*"
 
     SgaStartAthenaQueryGlueJob:
@@ -317,13 +325,18 @@ Resources:
                 --enable-job-insights: "false"
                 --job-language: "python"
                 --prebuilt-library-option: "prebuilt-library-enable"
+                --region: "eu-west-2"
+                --database: "sg_analysis_rules_data_ks"
+                --table: "sg_analysis_rules_data_ks"
+                --bucket: "sga-buckets-sgas3bucketathena-1oadk3sp8xq5n"
+                --path: "path"
             MaxRetries: 1
             Timeout: 2880
             GlueVersion: "1.0"
             MaxCapacity: 0.0625
 
     SgaParseFlowLogsGlueJobIAMRole:
-        Type: AWS::IAM::Role
+        Type: "AWS::IAM::Role"
         Properties:
           AssumeRolePolicyDocument:
             Version: '2012-10-17'
@@ -366,7 +379,15 @@ Resources:
                         - dynamodb:GetItem
                       Resource:
                         - !GetAtt DynamoTableSGRules.Arn
+                        - !Join
+                            - ''
+                            - - !GetAtt DynamoTableSGRules.Arn
+                              - "/*"
                         - !GetAtt DynamoTableENIAnalysis.Arn
+                        - !Join
+                            - ''
+                            - - !GetAtt DynamoTableENIAnalysis.Arn
+                              - "/*"
               - PolicyName: GlueJobDynamoDBReadWritePolicy
                 PolicyDocument:
                   Version: '2012-10-17'
@@ -442,6 +463,14 @@ Resources:
                       - dynamodb:PutItem
                       - dynamodb:Query
                     Resource: !GetAtt DynamoTableSGRules.Arn
+            - PolicyName: AssumeCrossAccountRole
+              PolicyDocument:
+                Version: '2012-10-17'
+                Statement:
+                  - Effect: Allow
+                    Action:
+                      - sts:AssumeRole
+                    Resource: arn:aws:iam::*:role/SgaCrossAccountSecurityGroupLambda
 
     SgaGetSgLambda:
       Type: "AWS::Lambda::Function"
@@ -451,11 +480,13 @@ Resources:
         Environment:
           Variables:
             DB_TABLE: !Ref DynamoTableSGRules
+            # Define CROSS_ACCOUNT_ROLE_NAME here if you want to assume another role e.g. `ARN_ROLE: arn:aws:iam::<AccountNo>:role/<Role>`
+            CROSS_ACCOUNT_ROLE_NAME: SgaCrossAccountSecurityGroupLambda
         Runtime: python3.10
         Timeout: 300
         Code:
           S3Bucket: !ImportValue sga-resources-bucket-ref
-          S3Key: GetSGTest-5635c8ba-9036-4b27-a232-ffb9f8874040.zip
+          S3Key: KS-Test-SgaGetSgLambda-FU23JMQzQK3h-e5bf42f5-d48d-49eb-b014-c60d1690fe98.zip
 
     SgaGetEniLambdaIAMRole:
         Type: AWS::IAM::Role
@@ -491,6 +522,14 @@ Resources:
                       - dynamodb:PutItem
                       - dynamodb:Query
                     Resource: !GetAtt DynamoTableENIAnalysis.Arn
+            - PolicyName: AssumeCrossAccountRole
+              PolicyDocument:
+                Version: '2012-10-17'
+                Statement:
+                  - Effect: Allow
+                    Action:
+                      - sts:AssumeRole
+                    Resource: arn:aws:iam::*:role/SgaCrossAccountEniLambda
 
     SgaGetEniLambda:
       Type: "AWS::Lambda::Function"
@@ -500,8 +539,10 @@ Resources:
         Environment:
           Variables:
             DB_TABLE: !Ref DynamoTableENIAnalysis
+            # Define CROSS_ACCOUNT_ROLE_NAME here if you want to assume another role e.g. `ARN_ROLE: arn:aws:iam::<AccountNo>:role/<Role>`
+            CROSS_ACCOUNT_ROLE_NAME: SgaCrossAccountEniLambda
         Runtime: python3.10
         Timeout: 300
         Code:
           S3Bucket: !ImportValue sga-resources-bucket-ref
-          S3Key: GetENITest-787e5a66-3dc8-4c70-b8a6-f9e4ba4761d5.zip
+          S3Key: KS-Test-SgaGetEniLambda-zTqrdlSrwIes-49aa08b1-367c-41d5-9f21-8ec2f1cc355b.zip

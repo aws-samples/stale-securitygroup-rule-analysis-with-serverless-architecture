@@ -3,27 +3,32 @@ import pandas as pd
 import io
 import re
 import time
+import sys
+from awsglue.utils import getResolvedOptions
 from datetime import datetime, timedelta, date
 # Follow this article to create Athena table (to be used in query) that can analyze Amazon VPC Flow Logs - https://aws.amazon.com/premiumsupport/knowledge-center/athena-analyze-vpc-flow-logs/
+
+args = getResolvedOptions(sys.argv, ['region', 'database', 'table', 'bucket', 'path'])
+
 params = {
     # AWS region to use
-    'region': 'eu-west-2',
+    'region': args['region'],
     # Name of database in glue
-    'database': 'glue_db_name',
+    'database': args['database'],
     # Name of table in glue
-    'table': 'athena_table_name',
+    'table': args['table'],
     # Name of S3 bucket Athena queries go into
-    'bucket': 'athena_s3_bucket',
+    'bucket': args['bucket'],
     # Path to use in bucket - no leading or trailing slash
     # e.g. vpcflowlogs/athena
-    'path': 'path_to_flow_logs'
+    'path': args['path']
 }
 
 date_yst = (date.today() - timedelta(1))
 if date_yst.day > 9:
-    params['query'] = f"select interface_id, protocol, flow_direction, srcaddr, srcport, dstaddr, dstport FROM {params['database']}.{params['table']} WHERE dstport is not null and day='{date_yst.day}' and action='ACCEPT'"
+    params['query'] = f"select interface_id, protocol, flow_direction, srcaddr, srcport, dstaddr, dstport FROM {params['database']}.\"{params['table']}\" WHERE dstport is not null and day='{date_yst.day}' and action='ACCEPT'"
 else:
-    params['query'] = f"select interface_id, protocol, flow_direction, srcaddr, srcport, dstaddr, dstport FROM {params['database']}.{params['table']} WHERE dstport is not null and day='0{date_yst.day}' and action='ACCEPT'"
+    params['query'] = f"select interface_id, protocol, flow_direction, srcaddr, srcport, dstaddr, dstport FROM {params['database']}.\"{params['table']}\" WHERE dstport is not null and day='0{date_yst.day}' and action='ACCEPT'"
 
 session = boto3.Session()
 outputLocation='s3://' + params['bucket'] + '/' + params['path'] + '/' + date_yst.isoformat().replace('-','/')
@@ -72,6 +77,7 @@ def athena_to_s3(session, params, max_execution = 5):
 
 def main():
     print("Executing the query to fetch ports and used information from Athena table....")
+    print(f'parameters set to: {params}')
     # Query Athena and get the Ports information
     ports_count_info = athena_to_s3(session, params)
 
