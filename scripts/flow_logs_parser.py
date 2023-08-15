@@ -49,6 +49,23 @@ def max_score_finder(filtered_list):
 def network_scorer(rule_block):
     network_score = IPv4Network(rule_block).prefixlen
     return network_score
+
+def rule_matcher(resp_list,flow):
+    [r.setdefault('match_score',1) for r in resp_list]
+    if len(resp_list) == 1:
+        return resp_list
+    else:
+        filtered_list = [r for r in resp_list if network_test(r['properties']['CidrIpv4'],flow['addr']) and protocol_test(r['properties']['IpProtocol'],flow['protocol'])]
+        [increment_score(r,network_scorer(r['properties']['CidrIpv4'])) for r in resp_list]
+        [increment_score(r,1) for r in filtered_list if (r['properties']['FromPort'] == flow['port'] or r['properties']['ToPort'] == flow['port'])]
+        [increment_score(r,0.5) for r in filtered_list if flow['port'] in range(int(r['properties']['FromPort']), int(r['properties']['ToPort'])+1)]
+        [increment_score(r,1) for r in filtered_list if r['properties']['IpProtocol'] == flow['protocol']]
+        [increment_score(r,0.5) for r in filtered_list if r['properties']['IpProtocol'] == '-1']
+    
+    max_score_list = max_score_finder(filtered_list=filtered_list)
+    
+    return max_score_list
+
 def get_sg_rule_id(sg_id, protocol, flow_dir, srcaddr, srcport, dstaddr, dstport):
     deserializer = TypeDeserializer()
     try:
