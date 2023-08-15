@@ -38,6 +38,8 @@ def protocol_test(rule_protocol,flow_protocol):
     else:
         return False
 
+def increment_score(sgr_dict,score_value):
+    sgr_dict['match_score'] += score_value
 def get_sg_rule_id(sg_id, protocol, flow_dir, srcaddr, srcport, dstaddr, dstport):
     deserializer = TypeDeserializer()
     try:
