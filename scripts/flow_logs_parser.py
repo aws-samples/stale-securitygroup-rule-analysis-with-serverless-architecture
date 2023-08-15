@@ -84,26 +84,27 @@ def get_sg_rule_id(sg_id, protocol, flow_dir, srcaddr, srcport, dstaddr, dstport
             }
         )
         if flow_dir == 'egress':
+            flow_object = {
+                'addr': dstaddr,
+                'port': dstport,
+                'protocol': protocol,
+            }
             resp_list = [{k: deserializer.deserialize(v) for k, v in r.items()} for r in response['Items'] if r['properties']['M']['IsEgress']['BOOL'] == True]
         else:
+            flow_object = {
+                'addr': srcaddr,
+                'port': dstport,
+                'protocol': protocol
+            }
             resp_list = [{k: deserializer.deserialize(v) for k, v in r.items()} for r in response['Items'] if r['properties']['M']['IsEgress']['BOOL'] == False]
 
-        for respItem in resp_list:
-            try:
-                if dstport in range(int(respItem['properties']['FromPort']), int(respItem['properties']['ToPort'])+1) and protocol == respItem['properties']['IpProtocol']:
-                    if flow_dir == 'egress':
-                        if network_test(rule_block=respItem['properties']['CidrIpv4'],flow_addr=dstaddr):
-                            print(f"Security Group rule id is: {respItem['id']}")
-                            insert_usage_data(sg_rule_id=respItem['id'],sg_id=sg_id, flow_dir=flow_dir,protocol=respItem['properties']['IpProtocol'],addr=dstaddr,dstport=dstport)
-                    elif flow_dir == 'ingress':
-                        if network_test(rule_block=respItem['properties']['CidrIpv4'],flow_addr=srcaddr):
-                            insert_usage_data(sg_rule_id=respItem['id'],sg_id=sg_id, flow_dir=flow_dir,protocol=respItem['properties']['IpProtocol'],addr=srcaddr,dstport=dstport)
-                else:
-                    print(f'no rule found for flow')
-            except Exception as e:
-                print(str(e))
-                raise e
-        return resp_list
+        try:
+            result = rule_matcher(resp_list,flow_object)[0]
+            print(f"rule found for flow: sg_rule_id={result['id']},sg_id={result['group_id']},flow_dir={flow_dir},protocol={flow_object['protocol']},addr={flow_object['addr']},dstport={flow_object['port']}")
+            insert_usage_data(sg_rule_id=result['id'],sg_id=result['group_id'],flow_dir=flow_dir,protocol=flow_object['protocol'],addr=flow_object['addr'],dstport=flow_object['port'])
+        except:
+            print(f'no rule found for flow:{flow_object}')
+        
     except Exception as e: 
         print("There was an error while trying to perform DynamoDB get operation on Rules table: "+str(e))
     
