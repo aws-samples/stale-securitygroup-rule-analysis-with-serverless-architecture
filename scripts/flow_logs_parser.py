@@ -46,6 +46,9 @@ def max_score_finder(filtered_list):
     max_score_item = [f for f in filtered_list if f['match_score'] >= max_score]
     return max_score_item
 
+def network_scorer(rule_block):
+    network_score = IPv4Network(rule_block).prefixlen
+    return network_score
 def get_sg_rule_id(sg_id, protocol, flow_dir, srcaddr, srcport, dstaddr, dstport):
     deserializer = TypeDeserializer()
     try:
