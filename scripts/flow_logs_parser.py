@@ -32,6 +32,11 @@ def network_test(rule_block,flow_addr):
     result = addr in net
     return result
 
+def protocol_test(rule_protocol,flow_protocol):
+    if rule_protocol == flow_protocol or rule_protocol == '-1':
+        return True
+    else:
+        return False
 
 def get_sg_rule_id(sg_id, protocol, flow_dir, srcaddr, srcport, dstaddr, dstport):
     deserializer = TypeDeserializer()
