@@ -158,68 +158,77 @@ Resources:
             StateMachineName: !Ref EventsRule
             DefinitionString: !Sub |
                 {
-                  "Comment": "A description of my state machine",
-                  "StartAt": "Lambda GetSG",
+                  "StartAt": "ProcessItems",
                   "States": {
-                    "Lambda GetSG": {
-                      "Type": "Task",
-                      "Resource": "arn:aws:states:::lambda:invoke",
-                      "OutputPath": "$.Payload",
-                      "Parameters": {
-                        "Payload.$": "$",
-                        "FunctionName": "${SgaGetSgLambda.Arn}"
-                      },
-                      "Retry": [
-                        {
-                          "ErrorEquals": [
-                            "Lambda.ServiceException",
-                            "Lambda.AWSLambdaException",
-                            "Lambda.SdkClientException",
-                            "Lambda.TooManyRequestsException"
-                          ],
-                          "IntervalSeconds": 2,
-                          "MaxAttempts": 6,
-                          "BackoffRate": 2
+                    "ProcessItems": {
+                      "Type": "Map",
+                      "ItemsPath": "$.data",
+                      "Iterator": {
+                        "StartAt": "GetSG",
+                        "States": {
+                          "GetSG": {
+                            "Type": "Task",
+                            "Resource": "${SgaGetSgLambda.Arn}",
+                            "InputPath": "$",
+                            "Retry": [
+                              {
+                                "ErrorEquals": [
+                                  "Lambda.ServiceException",
+                                  "Lambda.AWSLambdaException",
+                                  "Lambda.SdkClientException",
+                                  "Lambda.TooManyRequestsException"
+                                ],
+                                "IntervalSeconds": 2,
+                                "MaxAttempts": 6,
+                                "BackoffRate": 2
+                              }
+                            ],
+                            "Next": "GetENI",
+                            "ResultPath": null
+                          },
+                          "GetENI": {
+                            "Type": "Task",
+                            "Resource": "${SgaGetEniLambda.Arn}",
+                            "InputPath": "$",
+                            "Retry": [
+                              {
+                                "ErrorEquals": [
+                                  "Lambda.ServiceException",
+                                  "Lambda.AWSLambdaException",
+                                  "Lambda.SdkClientException",
+                                  "Lambda.TooManyRequestsException"
+                                ],
+                                "IntervalSeconds": 2,
+                                "MaxAttempts": 6,
+                                "BackoffRate": 2
+                              }
+                            ],
+                            "Next": "QueryVPCFlowLogsSaveToS3",
+                            "ResultPath": null
+                          },
+                          "QueryVPCFlowLogsSaveToS3": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::glue:startJobRun.sync",
+                            "Parameters": {
+                              "JobName": "${SgaStartAthenaQueryGlueJob}",
+                              "Arguments": {
+                                "--region.$": "$.region",
+                                "--table.$": "$.table",
+                                "--path.$": "$.path"
+                              }
+                            },
+                            "Next": "ParseVPCFLowLogsSaveUsageCount",
+                            "InputPath": "$"
+                          },
+                          "ParseVPCFLowLogsSaveUsageCount": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::glue:startJobRun.sync",
+                            "Parameters": {
+                              "JobName": "${SgaParseFlowLogsGlueJob}"
+                            },
+                            "End": true
+                          }
                         }
-                      ],
-                      "Next": "Lambda GetEni"
-                    },
-                    "Lambda GetEni": {
-                      "Type": "Task",
-                      "Resource": "arn:aws:states:::lambda:invoke",
-                      "OutputPath": "$.Payload",
-                      "Parameters": {
-                        "Payload.$": "$",
-                        "FunctionName": "${SgaGetEniLambda.Arn}"
-                      },
-                      "Retry": [
-                        {
-                          "ErrorEquals": [
-                            "Lambda.ServiceException",
-                            "Lambda.AWSLambdaException",
-                            "Lambda.SdkClientException",
-                            "Lambda.TooManyRequestsException"
-                          ],
-                          "IntervalSeconds": 2,
-                          "MaxAttempts": 6,
-                          "BackoffRate": 2
-                        }
-                      ],
-                      "Next": "Glue QueryVPCFlowLogsSaveToS3"
-                    },
-                    "Glue QueryVPCFlowLogsSaveToS3": {
-                      "Type": "Task",
-                      "Resource": "arn:aws:states:::glue:startJobRun.sync",
-                      "Parameters": {
-                        "JobName": "${SgaStartAthenaQueryGlueJob}"
-                      },
-                      "Next": "Glue ParseVPCFLowLogsSaveUsageCount"
-                    },
-                    "Glue ParseVPCFLowLogsSaveUsageCount": {
-                      "Type": "Task",
-                      "Resource": "arn:aws:states:::glue:startJobRun.sync",
-                      "Parameters": {
-                        "JobName": "${SgaParseFlowLogsGlueJob}"
                       },
                       "End": true
                     }
