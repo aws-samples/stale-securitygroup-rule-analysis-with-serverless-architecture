@@ -32,6 +32,39 @@ def network_test(rule_block,flow_addr):
     result = addr in net
     return result
 
+def protocol_test(rule_protocol,flow_protocol):
+    if rule_protocol == flow_protocol or rule_protocol == '-1':
+        return True
+    else:
+        return False
+
+def increment_score(sgr_dict,score_value):
+    sgr_dict['match_score'] += score_value
+
+def max_score_finder(filtered_list):
+    max_score = max([i['match_score'] for i in filtered_list])
+    max_score_item = [f for f in filtered_list if f['match_score'] >= max_score]
+    return max_score_item
+
+def network_scorer(rule_block):
+    network_score = IPv4Network(rule_block).prefixlen
+    return network_score
+
+def rule_matcher(resp_list,flow):
+    [r.setdefault('match_score',1) for r in resp_list]
+    if len(resp_list) == 1:
+        return resp_list
+    else:
+        filtered_list = [r for r in resp_list if network_test(r['properties'].get('CidrIpv4'),flow['addr']) and protocol_test(r['properties']['IpProtocol'],flow['protocol'])]
+        [increment_score(r,network_scorer(r['properties'].get('CidrIpv4'))) for r in resp_list]
+        [increment_score(r,1) for r in filtered_list if (r['properties']['FromPort'] == flow['port'] or r['properties']['ToPort'] == flow['port'])]
+        [increment_score(r,0.5) for r in filtered_list if flow['port'] in range(int(r['properties']['FromPort']), int(r['properties']['ToPort'])+1)]
+        [increment_score(r,1) for r in filtered_list if r['properties']['IpProtocol'] == flow['protocol']]
+        [increment_score(r,0.5) for r in filtered_list if r['properties']['IpProtocol'] == '-1']
+    
+    max_score_list = max_score_finder(filtered_list=filtered_list)
+    
+    return max_score_list
 
 def get_sg_rule_id(sg_id, protocol, flow_dir, srcaddr, srcport, dstaddr, dstport):
     deserializer = TypeDeserializer()
@@ -51,26 +84,29 @@ def get_sg_rule_id(sg_id, protocol, flow_dir, srcaddr, srcport, dstaddr, dstport
             }
         )
         if flow_dir == 'egress':
+            flow_object = {
+                'addr': dstaddr,
+                'port': dstport,
+                'protocol': protocol,
+            }
             resp_list = [{k: deserializer.deserialize(v) for k, v in r.items()} for r in response['Items'] if r['properties']['M']['IsEgress']['BOOL'] == True]
         else:
+            flow_object = {
+                'addr': srcaddr,
+                'port': dstport,
+                'protocol': protocol
+            }
             resp_list = [{k: deserializer.deserialize(v) for k, v in r.items()} for r in response['Items'] if r['properties']['M']['IsEgress']['BOOL'] == False]
 
-        for respItem in resp_list:
-            try:
-                if dstport in range(int(respItem['properties']['FromPort']), int(respItem['properties']['ToPort'])+1) and protocol == respItem['properties']['IpProtocol']:
-                    if flow_dir == 'egress':
-                        if network_test(rule_block=respItem['properties']['CidrIpv4'],flow_addr=dstaddr):
-                            print(f"Security Group rule id is: {respItem['id']}")
-                            insert_usage_data(sg_rule_id=respItem['id'],sg_id=sg_id, flow_dir=flow_dir,protocol=respItem['properties']['IpProtocol'],addr=dstaddr,dstport=dstport)
-                    elif flow_dir == 'ingress':
-                        if network_test(rule_block=respItem['properties']['CidrIpv4'],flow_addr=srcaddr):
-                            insert_usage_data(sg_rule_id=respItem['id'],sg_id=sg_id, flow_dir=flow_dir,protocol=respItem['properties']['IpProtocol'],addr=srcaddr,dstport=dstport)
-                else:
-                    print(f'no rule found for flow')
-            except Exception as e:
-                print(str(e))
-                raise e
-        return resp_list
+        try:
+            result = rule_matcher(resp_list,flow_object)[0]
+            print(f"rule found for flow: sg_rule_id={result['id']},sg_id={result['group_id']},flow_dir={flow_dir},protocol={flow_object['protocol']},addr={flow_object['addr']},dstport={flow_object['port']}")
+            insert_usage_data(sg_rule_id=result['id'],sg_id=result['group_id'],flow_dir=flow_dir,protocol=flow_object['protocol'],addr=flow_object['addr'],dstport=flow_object['port'])
+        except Exception as e:
+            print(f'no rule found for flow:{flow_object} - {flow_dir}')
+            print(f'error: {e}')
+            # raise e
+        
     except Exception as e: 
         print("There was an error while trying to perform DynamoDB get operation on Rules table: "+str(e))
     
@@ -113,6 +149,7 @@ def insert_usage_data(sg_rule_id, sg_id, flow_dir, protocol, addr, dstport):
             )
     except Exception as e: 
         print("There was an error while trying to perform DynamoDB insert operation on Usage table: "+str(e))
+        # raise e
 
 def get_interface_ddb(id:str) -> dict:
     deserialize = TypeDeserializer()
@@ -124,7 +161,7 @@ def get_interface_ddb(id:str) -> dict:
         nic_dict = {k: deserialize.deserialize(v) for k, v in response['Item'].items()}
         return nic_dict
     else:
-        raise ValueError(f'nic id: {id} not found!')
+        print (f'nic id: {id} not found!')
 
 
 def main():
@@ -134,8 +171,10 @@ def main():
     dfs = wr.s3.read_csv(path=s3_folder_path, chunksize=1000, encoding = 'ISO-8859-1')
     for df in dfs:
         try:
+            df_row_count = len(df) - 1
             df['protocol'] = df['protocol'].map({6: 'tcp', 17: 'udp', 1: 'icmp'})
             for index, row in df.iterrows():
+                print(f'processing row {index} of {df_row_count}')
                 if row is not None and 'dstport' in row:
                     nw_int_info = get_interface_ddb(id=row['interface_id'])
                 
@@ -145,7 +184,8 @@ def main():
         except KeyError:
             pass
         except Exception as e:
-            raise e
+            print(f'error: {e}')
+            # raise e
     
     print("Writing rules data to DynamoDB table- completed at: "+str(datetime.now()))
     end = time.time()
