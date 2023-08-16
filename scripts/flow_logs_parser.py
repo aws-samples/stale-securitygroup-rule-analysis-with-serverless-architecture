@@ -170,8 +170,10 @@ def main():
     dfs = wr.s3.read_csv(path=s3_folder_path, chunksize=1000, encoding = 'ISO-8859-1')
     for df in dfs:
         try:
+            df_row_count = len(df) - 1
             df['protocol'] = df['protocol'].map({6: 'tcp', 17: 'udp', 1: 'icmp'})
             for index, row in df.iterrows():
+                print(f'processing row {index} of {df_row_count}')
                 if row is not None and 'dstport' in row:
                     nw_int_info = get_interface_ddb(id=row['interface_id'])
                 
@@ -181,7 +183,8 @@ def main():
         except KeyError:
             pass
         except Exception as e:
-            raise e
+            print(f'error: {e}')
+            # raise e
     
     print("Writing rules data to DynamoDB table- completed at: "+str(datetime.now()))
     end = time.time()
