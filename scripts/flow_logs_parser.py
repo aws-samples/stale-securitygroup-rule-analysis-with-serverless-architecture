@@ -160,7 +160,7 @@ def get_interface_ddb(id:str) -> dict:
         nic_dict = {k: deserialize.deserialize(v) for k, v in response['Item'].items()}
         return nic_dict
     else:
-        raise ValueError(f'nic id: {id} not found!')
+        print (f'nic id: {id} not found!')
 
 
 def main():
