@@ -102,8 +102,10 @@ def get_sg_rule_id(sg_id, protocol, flow_dir, srcaddr, srcport, dstaddr, dstport
             result = rule_matcher(resp_list,flow_object)[0]
             print(f"rule found for flow: sg_rule_id={result['id']},sg_id={result['group_id']},flow_dir={flow_dir},protocol={flow_object['protocol']},addr={flow_object['addr']},dstport={flow_object['port']}")
             insert_usage_data(sg_rule_id=result['id'],sg_id=result['group_id'],flow_dir=flow_dir,protocol=flow_object['protocol'],addr=flow_object['addr'],dstport=flow_object['port'])
-        except:
-            print(f'no rule found for flow:{flow_object}')
+        except Exception as e:
+            print(f'no rule found for flow:{flow_object} - {flow_dir}')
+            print(f'error: {e}')
+            # raise e
         
     except Exception as e: 
         print("There was an error while trying to perform DynamoDB get operation on Rules table: "+str(e))
