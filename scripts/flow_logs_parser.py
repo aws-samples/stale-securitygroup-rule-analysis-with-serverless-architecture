@@ -55,8 +55,8 @@ def rule_matcher(resp_list,flow):
     if len(resp_list) == 1:
         return resp_list
     else:
-        filtered_list = [r for r in resp_list if network_test(r['properties']['CidrIpv4'],flow['addr']) and protocol_test(r['properties']['IpProtocol'],flow['protocol'])]
-        [increment_score(r,network_scorer(r['properties']['CidrIpv4'])) for r in resp_list]
+        filtered_list = [r for r in resp_list if network_test(r['properties'].get('CidrIpv4'),flow['addr']) and protocol_test(r['properties']['IpProtocol'],flow['protocol'])]
+        [increment_score(r,network_scorer(r['properties'].get('CidrIpv4'))) for r in resp_list]
         [increment_score(r,1) for r in filtered_list if (r['properties']['FromPort'] == flow['port'] or r['properties']['ToPort'] == flow['port'])]
         [increment_score(r,0.5) for r in filtered_list if flow['port'] in range(int(r['properties']['FromPort']), int(r['properties']['ToPort'])+1)]
         [increment_score(r,1) for r in filtered_list if r['properties']['IpProtocol'] == flow['protocol']]
