@@ -1,0 +1,16 @@
+{
+  "data": [
+    {
+      "AccountNo": "12345678901",
+      "region": "eu-west-1",
+      "table": "SomeGlueTable",
+      "path": "path/path"
+    },
+    {
+      "AccountNo": "12345678902",
+      "region": "eu-west-2",
+      "table": "AnotherGlueTable",
+      "path": "path/anotherpath"
+    }
+  ]
+}
