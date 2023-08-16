@@ -149,6 +149,7 @@ def insert_usage_data(sg_rule_id, sg_id, flow_dir, protocol, addr, dstport):
             )
     except Exception as e: 
         print("There was an error while trying to perform DynamoDB insert operation on Usage table: "+str(e))
+        # raise e
 
 def get_interface_ddb(id:str) -> dict:
     deserialize = TypeDeserializer()
