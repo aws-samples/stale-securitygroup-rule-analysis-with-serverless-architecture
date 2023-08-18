@@ -179,8 +179,8 @@ def main():
                     nw_int_info = get_interface_ddb(id=row['interface_id'])
                 
                     for grp in nw_int_info['security_group_ids']:
-                        print(grp, row['protocol'],row['flow_direction'],row['srcaddr'],row['srcport'],row['dstaddr'],row['dstport'])
-                        get_sg_rule_id(grp, row['protocol'],row['flow_direction'],row['srcaddr'],row['srcport'],row['dstaddr'],row['dstport'])
+                        print(grp, row['flow_count'], row['protocol'],row['flow_direction'],row['addr'],row['dstport'])
+                        get_sg_rule_id(grp, row['flow_count'], row['protocol'],row['flow_direction'],row['addr'],row['dstport'])
         except KeyError:
             pass
         except Exception as e:
