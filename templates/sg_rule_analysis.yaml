@@ -262,7 +262,7 @@ Resources:
     EventsRule:
         Type: "AWS::Events::Rule"
         Properties:
-            ScheduleExpression: "cron(55 * * * ? *)"
+            ScheduleExpression: "cron(40 * * * ? *)"
             State: "ENABLED"
             Targets: 
                 - 
@@ -274,6 +274,17 @@ Resources:
                   RoleArn: !GetAtt 
                     - SgaEventBridgeIAMRole
                     - Arn
+                  Input: |-
+                    {
+                      "data": [
+                        {
+                          "AccountNo": "012345678901",
+                          "region": "eu-west-2",
+                          "table": "SomeGlueTable",
+                          "path": "path/path"
+                        }
+                      ]
+                    }
             EventBusName: "default"
 
     SgaStartAthenaQueryGlueJobIAMRole:
