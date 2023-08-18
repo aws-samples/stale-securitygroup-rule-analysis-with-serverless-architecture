@@ -31,7 +31,6 @@ Resources:
                 Principal:
                   Service:
                   - states.amazonaws.com
-                  - events.amazonaws.com
                 Action: sts:AssumeRole
           Path: /
           ManagedPolicyArns:
@@ -65,7 +64,7 @@ Resources:
                     Resource: "*"
 
 
-    IAMManagedPolicy:
+    SgaEventBridgeIAMManagedPolicy:
         Type: "AWS::IAM::ManagedPolicy"
         Properties:
             Path: "/service-role/"
@@ -84,6 +83,21 @@ Resources:
                         }
                     ]
                 }
+
+    SgaEventBridgeIAMRole:
+        Type: AWS::IAM::Role
+        Properties:
+          AssumeRolePolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Principal:
+                  Service:
+                  - events.amazonaws.com
+                Action: sts:AssumeRole
+          Path: /
+          ManagedPolicyArns:
+            - !Ref SgaEventBridgeIAMManagedPolicy
 
     StepFuncLogGroup:
         Type: "AWS::Logs::LogGroup"
@@ -158,7 +172,6 @@ Resources:
     StepFunctionsStateMachine:
         Type: "AWS::StepFunctions::StateMachine"
         Properties:
-            StateMachineName: !Ref EventsRule
             DefinitionString: !Sub |
                 {
                   "StartAt": "ProcessItems",
@@ -252,10 +265,15 @@ Resources:
             ScheduleExpression: "cron(55 * * * ? *)"
             State: "ENABLED"
             Targets: 
-              - 
-                Arn: arn:aws:states:eu-west-2:019050653029:stateMachine:KS-Test-State-Machine
-                Id: "Id70bcbcb6-9bda-4f24-8f45-8f3dbb65692c"
-                RoleArn: !GetAtt SgaStepFunctionIAMRole.Arn
+                - 
+                  Arn:
+                    Fn::GetAtt:
+                      - StepFunctionsStateMachine
+                      - Arn
+                  Id: 'SgaStepFunction'
+                  RoleArn: !GetAtt 
+                    - SgaEventBridgeIAMRole
+                    - Arn
             EventBusName: "default"
 
     SgaStartAthenaQueryGlueJobIAMRole:
