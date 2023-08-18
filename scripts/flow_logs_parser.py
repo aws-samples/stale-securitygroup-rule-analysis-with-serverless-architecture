@@ -103,8 +103,8 @@ def get_sg_rule_id(sg_id, flow_count, protocol, flow_dir, addr, dstport):
     except Exception as e: 
         print("There was an error while trying to perform DynamoDB get operation on Rules table: "+str(e))
     
-def insert_usage_data(sg_rule_id, sg_id, flow_dir, protocol, addr, dstport):
-    addr_rule_hash = [sg_rule_id,addr,dstport,protocol]
+def insert_usage_data(sg_rule_id, sg_id, flow_dir, flow_count, addr, port, protocol):
+    addr_rule_hash = [sg_rule_id,addr,port,protocol]
     hash_digest = sha1(str(addr_rule_hash).encode()).hexdigest()
     try:
         checkRuleIdExists=dynamodb.query(
@@ -122,8 +122,8 @@ def insert_usage_data(sg_rule_id, sg_id, flow_dir, protocol, addr, dstport):
                     'flow_direction': {'S':str(flow_dir)},
                     'protocol': {'S':str(protocol)},
                     'addr': {'S':str(addr)},
-                    'dstport': {'N':str(dstport)},
-                    'used_times': {'N':str(1)},
+                    'dstport': {'N':str(port)},
+                    'used_times': {'N':str(flow_count)},
                     'sg_rule_last_used': {'S':date_yst.strftime('%Y-%m-%d')},
                 }
             )
@@ -135,7 +135,7 @@ def insert_usage_data(sg_rule_id, sg_id, flow_dir, protocol, addr, dstport):
                 },
                 UpdateExpression='SET used_times = used_times + :val, sg_rule_last_used = :newlastused',
                 ExpressionAttributeValues={
-                    ':val': {'N':str(1)},
+                    ':val': {'N':str(flow_count)},
                     ':newlastused': {'S':date_yst.strftime('%Y-%m-%d')}
                 },
                 ReturnValues="UPDATED_NEW"
