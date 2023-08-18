@@ -29,7 +29,9 @@ Resources:
             Statement:
               - Effect: Allow
                 Principal:
-                  Service: states.amazonaws.com
+                  Service:
+                  - states.amazonaws.com
+                  - events.amazonaws.com
                 Action: sts:AssumeRole
           Path: /
           ManagedPolicyArns:
@@ -61,6 +63,7 @@ Resources:
                       - logs:DescribeResourcePolicies
                       - logs:DescribeLogGroups
                     Resource: "*"
+
 
     IAMManagedPolicy:
         Type: "AWS::IAM::ManagedPolicy"
@@ -246,13 +249,13 @@ Resources:
     EventsRule:
         Type: "AWS::Events::Rule"
         Properties:
-            ScheduleExpression: "cron(0 9 * * ? *)"
-            State: "DISABLED"
+            ScheduleExpression: "cron(55 * * * ? *)"
+            State: "ENABLED"
             Targets: 
               - 
-                Arn: !Sub "arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:sg-analysis-step-function"
+                Arn: arn:aws:states:eu-west-2:019050653029:stateMachine:KS-Test-State-Machine
                 Id: "Id70bcbcb6-9bda-4f24-8f45-8f3dbb65692c"
-                RoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/service-role/SG_Analysis_Amazon_EventBridge_Invoke_Step_Functions"
+                RoleArn: !GetAtt SgaStepFunctionIAMRole.Arn
             EventBusName: "default"
 
     SgaStartAthenaQueryGlueJobIAMRole:
