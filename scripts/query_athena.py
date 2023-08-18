@@ -26,9 +26,13 @@ params = {
 
 date_yst = (date.today() - timedelta(1))
 if date_yst.day > 9:
-    params['query'] = f"select interface_id, protocol, flow_direction, srcaddr, srcport, dstaddr, dstport FROM {params['database']}.\"{params['table']}\" WHERE dstport is not null and day='{date_yst.day}' and action='ACCEPT' limit 10000"
+    params['query'] = f"""
+        select count("interface_id") as flow_count, interface_id, protocol, flow_direction, if("flow_direction"='ingress',"srcaddr","dstaddr") as addr, dstport FROM {params['database']}.\"{params['table']}\" WHERE dstport is not null and day='{date_yst.day}' and action='ACCEPT' group by interface_id, protocol, flow_direction, if("flow_direction"='ingress',"srcaddr","dstaddr"), dstport, dstport having count(interface_id) > 5  order by flow_count desc limit 10000
+    """
 else:
-    params['query'] = f"select interface_id, protocol, flow_direction, srcaddr, srcport, dstaddr, dstport FROM {params['database']}.\"{params['table']}\" WHERE dstport is not null and day='0{date_yst.day}' and action='ACCEPT' limit 10000"
+    params['query'] = f"""
+        select count("interface_id") as flow_count, interface_id, protocol, flow_direction, if("flow_direction"='ingress',"srcaddr","dstaddr") as addr, dstport FROM {params['database']}.\"{params['table']}\" WHERE dstport is not null and day='0{date_yst.day}' and action='ACCEPT' group by interface_id, protocol, flow_direction, if("flow_direction"='ingress',"srcaddr","dstaddr"), dstport, dstport having count(interface_id) > 5  order by flow_count desc limit 10000
+    """
 
 session = boto3.Session()
 outputLocation='s3://' + params['bucket'] + '/' + params['path'] + '/' + date_yst.isoformat().replace('-','/')

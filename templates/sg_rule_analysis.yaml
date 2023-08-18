@@ -96,8 +96,8 @@ Resources:
               Projection:
                 ProjectionType: ALL
               ProvisionedThroughput:
-                ReadCapacityUnits: 5
-                WriteCapacityUnits: 5
+                ReadCapacityUnits: 10
+                WriteCapacityUnits: 10
           AttributeDefinitions:
             - AttributeName: id
               AttributeType: S
@@ -107,8 +107,8 @@ Resources:
             - AttributeName: id
               KeyType: HASH
           ProvisionedThroughput:
-            ReadCapacityUnits: 5
-            WriteCapacityUnits: 5
+            ReadCapacityUnits: 10
+            WriteCapacityUnits: 10
 
     DynamoTableSGAnalysis:
         Type: "AWS::DynamoDB::Table"
@@ -124,7 +124,7 @@ Resources:
                 ProjectionType: ALL
               ProvisionedThroughput:
                 ReadCapacityUnits: 5
-                WriteCapacityUnits: 5
+                WriteCapacityUnits: 8
           AttributeDefinitions:
             - AttributeName: sgr_flow_hash
               AttributeType: S
@@ -137,7 +137,7 @@ Resources:
               KeyType: HASH
           ProvisionedThroughput:
             ReadCapacityUnits: 5
-            WriteCapacityUnits: 5
+            WriteCapacityUnits: 8
       
     DynamoTableENIAnalysis:
         Type: "AWS::DynamoDB::Table"

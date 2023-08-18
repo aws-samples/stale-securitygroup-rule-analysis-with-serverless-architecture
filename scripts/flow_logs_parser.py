@@ -66,12 +66,9 @@ def rule_matcher(resp_list,flow):
     
     return max_score_list
 
-def get_sg_rule_id(sg_id, protocol, flow_dir, srcaddr, srcport, dstaddr, dstport):
+def get_sg_rule_id(sg_id, flow_count, protocol, flow_dir, addr, dstport):
     deserializer = TypeDeserializer()
     try:
-        protocol_dict = {'6': 'tcp', '27': 'udp', '1': 'icmp', 'any': 'any'}
-        key_list = list(protocol_dict.keys())
-        val_list = list(protocol_dict.values())
         
         response=dynamodb.query(
             TableName=sg_rules_tbl_name,
@@ -83,25 +80,21 @@ def get_sg_rule_id(sg_id, protocol, flow_dir, srcaddr, srcport, dstaddr, dstport
                 }
             }
         )
+        flow_object = {
+            'flow_count': flow_count,
+            'addr': addr,
+            'port': dstport,
+            'protocol': protocol,
+        }
         if flow_dir == 'egress':
-            flow_object = {
-                'addr': dstaddr,
-                'port': dstport,
-                'protocol': protocol,
-            }
             resp_list = [{k: deserializer.deserialize(v) for k, v in r.items()} for r in response['Items'] if r['properties']['M']['IsEgress']['BOOL'] == True]
         else:
-            flow_object = {
-                'addr': srcaddr,
-                'port': dstport,
-                'protocol': protocol
-            }
             resp_list = [{k: deserializer.deserialize(v) for k, v in r.items()} for r in response['Items'] if r['properties']['M']['IsEgress']['BOOL'] == False]
 
         try:
             result = rule_matcher(resp_list,flow_object)[0]
             print(f"rule found for flow: sg_rule_id={result['id']},sg_id={result['group_id']},flow_dir={flow_dir},protocol={flow_object['protocol']},addr={flow_object['addr']},dstport={flow_object['port']}")
-            insert_usage_data(sg_rule_id=result['id'],sg_id=result['group_id'],flow_dir=flow_dir,protocol=flow_object['protocol'],addr=flow_object['addr'],dstport=flow_object['port'])
+            insert_usage_data(sg_rule_id=result['id'],sg_id=result['group_id'],flow_dir=flow_dir,**flow_object)
         except Exception as e:
             print(f'no rule found for flow:{flow_object} - {flow_dir}')
             print(f'error: {e}')
@@ -110,8 +103,8 @@ def get_sg_rule_id(sg_id, protocol, flow_dir, srcaddr, srcport, dstaddr, dstport
     except Exception as e: 
         print("There was an error while trying to perform DynamoDB get operation on Rules table: "+str(e))
     
-def insert_usage_data(sg_rule_id, sg_id, flow_dir, protocol, addr, dstport):
-    addr_rule_hash = [sg_rule_id,addr,dstport,protocol]
+def insert_usage_data(sg_rule_id, sg_id, flow_dir, flow_count, addr, port, protocol):
+    addr_rule_hash = [sg_rule_id,addr,port,protocol]
     hash_digest = sha1(str(addr_rule_hash).encode()).hexdigest()
     try:
         checkRuleIdExists=dynamodb.query(
@@ -129,8 +122,8 @@ def insert_usage_data(sg_rule_id, sg_id, flow_dir, protocol, addr, dstport):
                     'flow_direction': {'S':str(flow_dir)},
                     'protocol': {'S':str(protocol)},
                     'addr': {'S':str(addr)},
-                    'dstport': {'N':str(dstport)},
-                    'used_times': {'N':str(1)},
+                    'dstport': {'N':str(port)},
+                    'used_times': {'N':str(flow_count)},
                     'sg_rule_last_used': {'S':date_yst.strftime('%Y-%m-%d')},
                 }
             )
@@ -142,7 +135,7 @@ def insert_usage_data(sg_rule_id, sg_id, flow_dir, protocol, addr, dstport):
                 },
                 UpdateExpression='SET used_times = used_times + :val, sg_rule_last_used = :newlastused',
                 ExpressionAttributeValues={
-                    ':val': {'N':str(1)},
+                    ':val': {'N':str(flow_count)},
                     ':newlastused': {'S':date_yst.strftime('%Y-%m-%d')}
                 },
                 ReturnValues="UPDATED_NEW"
@@ -179,8 +172,8 @@ def main():
                     nw_int_info = get_interface_ddb(id=row['interface_id'])
                 
                     for grp in nw_int_info['security_group_ids']:
-                        print(grp, row['protocol'],row['flow_direction'],row['srcaddr'],row['srcport'],row['dstaddr'],row['dstport'])
-                        get_sg_rule_id(grp, row['protocol'],row['flow_direction'],row['srcaddr'],row['srcport'],row['dstaddr'],row['dstport'])
+                        print(grp, row['flow_count'], row['protocol'],row['flow_direction'],row['addr'],row['dstport'])
+                        get_sg_rule_id(grp, row['flow_count'], row['protocol'],row['flow_direction'],row['addr'],row['dstport'])
         except KeyError:
             pass
         except Exception as e:
