@@ -262,8 +262,8 @@ Resources:
     EventsRule:
         Type: "AWS::Events::Rule"
         Properties:
-            ScheduleExpression: "cron(40 * * * ? *)"
-            State: "ENABLED"
+            ScheduleExpression: "cron(30 * * * ? *)"
+            State: "DISABLED"
             Targets: 
                 - 
                   Arn:
@@ -533,7 +533,7 @@ Resources:
         Timeout: 300
         Code:
           S3Bucket: !ImportValue sga-resources-bucket-ref
-          S3Key: KS-Test-SgaGetSgLambda-FU23JMQzQK3h-e5bf42f5-d48d-49eb-b014-c60d1690fe98.zip
+          S3Key: KS-Test-SgaGetSgLambda-FU23JMQzQK3h-b0d41471-bd70-4a45-9548-4fa7e8e2c158.zip
 
     SgaGetEniLambdaIAMRole:
         Type: AWS::IAM::Role
@@ -592,4 +592,4 @@ Resources:
         Timeout: 300
         Code:
           S3Bucket: !ImportValue sga-resources-bucket-ref
-          S3Key: KS-Test-SgaGetEniLambda-zTqrdlSrwIes-49aa08b1-367c-41d5-9f21-8ec2f1cc355b.zip
+          S3Key: KS-Test-SgaGetEniLambda-zTqrdlSrwIes-dd6156a0-4ad4-441c-b0ea-4ad738306e4d.zip
