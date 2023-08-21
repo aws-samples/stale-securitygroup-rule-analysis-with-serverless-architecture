@@ -29,7 +29,8 @@ Resources:
             Statement:
               - Effect: Allow
                 Principal:
-                  Service: states.amazonaws.com
+                  Service:
+                  - states.amazonaws.com
                 Action: sts:AssumeRole
           Path: /
           ManagedPolicyArns:
@@ -62,7 +63,8 @@ Resources:
                       - logs:DescribeLogGroups
                     Resource: "*"
 
-    IAMManagedPolicy:
+
+    SgaEventBridgeIAMManagedPolicy:
         Type: "AWS::IAM::ManagedPolicy"
         Properties:
             Path: "/service-role/"
@@ -81,6 +83,21 @@ Resources:
                         }
                     ]
                 }
+
+    SgaEventBridgeIAMRole:
+        Type: AWS::IAM::Role
+        Properties:
+          AssumeRolePolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Principal:
+                  Service:
+                  - events.amazonaws.com
+                Action: sts:AssumeRole
+          Path: /
+          ManagedPolicyArns:
+            - !Ref SgaEventBridgeIAMManagedPolicy
 
     StepFuncLogGroup:
         Type: "AWS::Logs::LogGroup"
@@ -155,7 +172,6 @@ Resources:
     StepFunctionsStateMachine:
         Type: "AWS::StepFunctions::StateMachine"
         Properties:
-            StateMachineName: !Ref EventsRule
             DefinitionString: !Sub |
                 {
                   "StartAt": "ProcessItems",
@@ -246,13 +262,29 @@ Resources:
     EventsRule:
         Type: "AWS::Events::Rule"
         Properties:
-            ScheduleExpression: "cron(0 9 * * ? *)"
-            State: "DISABLED"
+            ScheduleExpression: "cron(40 * * * ? *)"
+            State: "ENABLED"
             Targets: 
-              - 
-                Arn: !Sub "arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:sg-analysis-step-function"
-                Id: "Id70bcbcb6-9bda-4f24-8f45-8f3dbb65692c"
-                RoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/service-role/SG_Analysis_Amazon_EventBridge_Invoke_Step_Functions"
+                - 
+                  Arn:
+                    Fn::GetAtt:
+                      - StepFunctionsStateMachine
+                      - Arn
+                  Id: 'SgaStepFunction'
+                  RoleArn: !GetAtt 
+                    - SgaEventBridgeIAMRole
+                    - Arn
+                  Input: |-
+                    {
+                      "data": [
+                        {
+                          "AccountNo": "012345678901",
+                          "region": "eu-west-2",
+                          "table": "SomeGlueTable",
+                          "path": "path/path"
+                        }
+                      ]
+                    }
             EventBusName: "default"
 
     SgaStartAthenaQueryGlueJobIAMRole:
