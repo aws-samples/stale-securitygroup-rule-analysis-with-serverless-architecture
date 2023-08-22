@@ -6,22 +6,24 @@ import time
 import json
 import uuid
 from datetime import datetime, timedelta, date
+import sys
+from awsglue.utils import getResolvedOptions
 from boto3.dynamodb.types import TypeDeserializer, TypeSerializer
 from ipaddress import IPv4Address, IPv4Network
 from hashlib import sha1
 
-s3 = boto3.resource('s3',"eu-west-2")
-dynamodb = boto3.client('dynamodb',"eu-west-2")
+args = getResolvedOptions(sys.argv, ['region', 'FlowLogsAthenaResultsBucket', 'SGRulesTable', 'SGRulesGroupIndex', 'NICInterfaceTable', 'DynamoTableName', 'SGARulesUseIndex', 'path'])
 
-regions = ['eu-west-2']
+s3 = boto3.resource('s3', args['region'])
+dynamodb = boto3.client('dynamodb', args['region'])
 
-flow_logs_athena_results_bucket="security-group-monitoring-test-bucket-athena"
-sg_rules_tbl_name="security-groups"
-sg_rules_group_idx = "group_id-index"
-nic_interface_tbl="sg-analysis-interface-details"
-dynamodb_tbl_name="sg-analysis-rules-usage"
-sg_analysis_rules_use_idx='addr-id-index'
-athena_s3_prefix = "vpcflowlogs"
+flow_logs_athena_results_bucket= args["FlowLogsAthenaResultsBucket"]
+sg_rules_tbl_name= args["SGRulesTable"]
+sg_rules_group_idx = args["SGRulesGroupIndex"]
+nic_interface_tbl= args["NICInterfaceTable"]
+dynamodb_tbl_name= args["DynamoTableName"]
+sg_analysis_rules_use_idx= args["SGARulesUseIndex"]
+athena_s3_prefix = args['path']
 date_yst = (date.today() - timedelta(1))
 
 my_bucket = s3.Bucket(flow_logs_athena_results_bucket)
