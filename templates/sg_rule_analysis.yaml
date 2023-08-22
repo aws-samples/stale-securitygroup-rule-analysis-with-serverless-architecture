@@ -234,14 +234,21 @@ Resources:
                               }
                             },
                             "Next": "ParseVPCFLowLogsSaveUsageCount",
-                            "InputPath": "$"
+                            "InputPath": "$",
+                            "ResultPath": null
                           },
                           "ParseVPCFLowLogsSaveUsageCount": {
                             "Type": "Task",
                             "Resource": "arn:aws:states:::glue:startJobRun.sync",
                             "Parameters": {
-                              "JobName": "${SgaParseFlowLogsGlueJob}"
+                              "JobName": "${SgaParseFlowLogsGlueJob}",
+                              "Arguments": {
+                                "--region.$": "$.region",
+                                "--table.$": "$.table",
+                                "--path.$": "$.path"
+                              }
                             },
+                            "InputPath": "$",
                             "End": true
                           }
                         }
